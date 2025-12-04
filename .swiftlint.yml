@@ -1,0 +1,29 @@
+disabled_rules:
+  - trailing_whitespace
+  
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - explicit_init
+  - force_unwrapping
+  
+included:
+  - TimeTasker
+  
+excluded:
+  - Pods
+  - .build
+  
+line_length: 120
+
+identifier_name:
+  min_length: 2
+  max_length: 50
+
+type_name:
+  min_length: 3
+  max_length: 40
+
+function_body_length:
+  warning: 50
+  error: 100
