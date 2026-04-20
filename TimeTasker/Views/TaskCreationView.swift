@@ -31,9 +31,17 @@ struct TaskCreationView: View {
     @State private var websiteInput = ""
     @State private var showAppPicker = false
     @State private var showTemplates = true
+    @State private var naturalDeadlineInput = ""
+    @State private var naturalDeadlineFeedback: String?
     @State private var isPomodoroMode = false
+    @State private var pomodoroWorkMinutes = 25
+    @State private var pomodoroBreakMinutes = 5
+    @State private var pomodoroLongBreakMinutes = 15
+    @State private var pomodoroSessionsBeforeLongBreak = 4
+    @State private var estimatedMinutes = 60
     @State private var priority: TaskPriority = .medium
     @State private var notes = ""
+    @State private var showBlockedResources = true
     
     private var blockedApps: [Resource] {
         selectedResources.filter { $0.type == .application }
@@ -46,164 +54,294 @@ struct TaskCreationView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // Quick Templates Section
                 Section {
-                    DisclosureGroup("Quick Templates", isExpanded: $showTemplates) {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 140))], spacing: 10) {
-                            ForEach(taskTemplates) { template in
-                                TemplateButton(template: template) {
-                                    applyTemplate(template)
+                    DisclosureGroup("Use a Template", isExpanded: $showTemplates) {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(taskTemplates) { template in
+                                    TemplateButton(template: template) {
+                                        applyTemplate(template)
+                                    }
                                 }
                             }
+                            .padding(.vertical, 4)
                         }
-                        .padding(.vertical, 8)
                     }
+                } header: {
+                    Text("Quick Templates")
+                } footer: {
+                    Text("Start with a preset, then fine-tune title, timing, and focus behavior.")
                 }
-                
-                Section("Task Details") {
-                    TextField("Task Title", text: $title)
+
+                Section("Header") {
+                    TextField("Task title", text: $title)
                         .textFieldStyle(.roundedBorder)
                         .font(.title3)
                         .accessibilityIdentifier("taskCreation.titleField")
 
-                    DatePicker("Deadline", selection: $deadline, in: Date()...)
-            .accessibilityIdentifier("taskCreation.form")
-                        .datePickerStyle(.compact)
-                    
-                    // Priority Picker
-                    Picker("Priority", selection: $priority) {
-                        ForEach(TaskPriority.allCases, id: \.self) { level in
-                            HStack {
-                                Image(systemName: level.iconName)
-                                Text(level.rawValue)
+                    HStack(spacing: 12) {
+                        Picker("Category", selection: $selectedCategory) {
+                            ForEach(Category.allCases, id: \.self) { category in
+                                Label(category.rawValue, systemImage: category.iconName)
+                                    .tag(category)
                             }
-                            .tag(level)
+                        }
+                        .pickerStyle(.menu)
+
+                        Picker("Priority", selection: $priority) {
+                            ForEach(TaskPriority.allCases, id: \.self) { level in
+                                Label(level.rawValue, systemImage: level.iconName)
+                                    .tag(level)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                    .onChange(of: selectedCategory) { _, newCategory in
+                        applyDefaultAppsIfNeeded(for: newCategory)
+                    }
+
+                    TextField("Natural deadline (e.g. today 5pm, tomorrow 9am, in 2h)", text: $naturalDeadlineInput)
+                        .textFieldStyle(.roundedBorder)
+
+                    HStack(spacing: 10) {
+                        Button("Apply Deadline") {
+                            applyNaturalDeadlineInput()
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(naturalDeadlineInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        if let naturalDeadlineFeedback {
+                            Text(naturalDeadlineFeedback)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                        }
+
+                        Spacer()
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Deadline")
+                            .font(.subheadline.weight(.medium))
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                deadlineShortcutButton("+30m") {
+                                    deadline = Date().addingTimeInterval(30 * 60)
+                                }
+                                deadlineShortcutButton("+1h") {
+                                    deadline = Date().addingTimeInterval(60 * 60)
+                                }
+                                deadlineShortcutButton("+2h") {
+                                    deadline = Date().addingTimeInterval(2 * 60 * 60)
+                                }
+                                deadlineShortcutButton("Tonight") {
+                                    setDeadlineTodayAt(hour: 20)
+                                }
+                                deadlineShortcutButton("Tomorrow 9AM") {
+                                    setDeadlineTomorrowAt(hour: 9)
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+
+                        HStack(spacing: 12) {
+                            DatePicker(
+                                "Date",
+                                selection: $deadline,
+                                in: Date()...,
+                                displayedComponents: .date
+                            )
+                            .datePickerStyle(.compact)
+
+                            DatePicker(
+                                "Time",
+                                selection: $deadline,
+                                in: Date()...,
+                                displayedComponents: .hourAndMinute
+                            )
+                            .datePickerStyle(.compact)
                         }
                     }
-                    .pickerStyle(.segmented)
-                    
-                    // Pomodoro Mode Toggle
+                }
+
+                Section("Focus Behavior") {
                     Toggle(isOn: $isPomodoroMode) {
-                        HStack {
-                            Image(systemName: "timer")
-                                .foregroundColor(.orange)
-                            VStack(alignment: .leading) {
-                                Text("Pomodoro Mode")
-                                Text("25 min work / 5 min break cycles")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Label("Pomodoro", systemImage: "timer")
+                            Text("\(pomodoroWorkMinutes)m focus / \(pomodoroBreakMinutes)m break")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                     }
                     .onChange(of: isPomodoroMode) { _, newValue in
                         if newValue {
-                            deadline = Date().addingTimeInterval(25 * 60)
+                            deadline = Date().addingTimeInterval(TimeInterval(pomodoroWorkMinutes * 60))
+                        }
+                    }
+
+                    if isPomodoroMode {
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("Work Duration")
+                                Spacer()
+                                Stepper(value: $pomodoroWorkMinutes, in: 10...180, step: 5) {
+                                    Text("\(pomodoroWorkMinutes) min")
+                                        .monospacedDigit()
+                                }
+                                .frame(maxWidth: 160)
+                            }
+
+                            HStack {
+                                Text("Short Break")
+                                Spacer()
+                                Stepper(value: $pomodoroBreakMinutes, in: 5...60, step: 5) {
+                                    Text("\(pomodoroBreakMinutes) min")
+                                        .monospacedDigit()
+                                }
+                                .frame(maxWidth: 160)
+                            }
+
+                            HStack {
+                                Text("Long Break")
+                                Spacer()
+                                Stepper(value: $pomodoroLongBreakMinutes, in: 10...90, step: 5) {
+                                    Text("\(pomodoroLongBreakMinutes) min")
+                                        .monospacedDigit()
+                                }
+                                .frame(maxWidth: 160)
+                            }
+
+                            HStack {
+                                Text("Sessions Before Long Break")
+                                Spacer()
+                                Stepper(value: $pomodoroSessionsBeforeLongBreak, in: 2...8) {
+                                    Text("\(pomodoroSessionsBeforeLongBreak)")
+                                        .monospacedDigit()
+                                }
+                                .frame(maxWidth: 160)
+                            }
+                        }
+                        .font(.subheadline)
+                    }
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("Blocking Profile", systemImage: "shield.lefthalf.filled")
+                            .font(.subheadline.weight(.semibold))
+                        Text("\(blockedApps.count) apps and \(blockedWebsites.count) websites currently selected.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+
+                    DisclosureGroup("Manage blocked resources", isExpanded: $showBlockedResources) {
+                        HStack(spacing: 8) {
+                            Button("Use Category Defaults") {
+                                replaceCategoryDefaultApps(for: selectedCategory)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+
+                            Button("Clear All") {
+                                clearBlockedResources()
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .disabled(selectedResources.isEmpty)
+
+                            Spacer(minLength: 0)
+                        }
+
+                        if blockedApps.isEmpty {
+                            Text("No blocked apps selected")
+                                .foregroundColor(.secondary)
+                                .italic()
+                        } else {
+                            ForEach(blockedApps) { resource in
+                                HStack {
+                                    if let icon = getAppIcon(for: resource.path) {
+                                        Image(nsImage: icon)
+                                            .resizable()
+                                            .frame(width: 20, height: 20)
+                                    } else {
+                                        Image(systemName: "app.fill")
+                                            .frame(width: 20, height: 20)
+                                    }
+                                    Text(resource.name)
+                                        .lineLimit(1)
+
+                                    Spacer()
+
+                                    Button(action: {
+                                        removeResource(resource)
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                        }
+
+                        Button(action: { showAppPicker = true }) {
+                            Label("Add Blocked Apps", systemImage: "plus.circle.fill")
+                        }
+
+                        HStack(spacing: 8) {
+                            TextField("youtube.com", text: $websiteInput)
+                                .textFieldStyle(.roundedBorder)
+
+                            Button("Add") {
+                                addWebsiteFromInput()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(normalizeDomain(websiteInput) == nil)
+                        }
+
+                        if blockedWebsites.isEmpty {
+                            Text("No blocked websites selected")
+                                .foregroundColor(.secondary)
+                                .italic()
+                        } else {
+                            ForEach(blockedWebsites) { website in
+                                HStack {
+                                    Image(systemName: "globe")
+                                        .foregroundColor(.secondary)
+                                    Text(website.name)
+                                        .lineLimit(1)
+
+                                    Spacer()
+
+                                    Button(action: {
+                                        removeResource(website)
+                                    }) {
+                                        Image(systemName: "xmark.circle.fill")
+                                            .foregroundColor(.red)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
                         }
                     }
                 }
-                
-                // Notes Section
-                Section("Notes (optional)") {
+
+                Section("Notes & Metadata") {
                     TextEditor(text: $notes)
-                        .frame(minHeight: 60)
+                        .frame(minHeight: 100)
                         .font(.body)
-                }
 
-                Section("Category") {
-                    Picker("Select Category", selection: $selectedCategory) {
-                        ForEach(Category.allCases, id: \.self) { category in
-                            HStack {
-                                Image(systemName: category.iconName)
-                                Text(category.rawValue)
-                            }
-                            .tag(category)
-                        }
-                    }
-                    .pickerStyle(.radioGroup)
-                    .onChange(of: selectedCategory) { _, newCategory in
-                        loadDefaultApps(for: newCategory)
-                    }
-                }
-
-                Section("Blocked Apps (\\(blockedApps.count))") {
-                    if blockedApps.isEmpty {
-                        Text("No blocked apps selected")
-                            .foregroundColor(.secondary)
-                            .italic()
-                    } else {
-                        ForEach(blockedApps) { resource in
-                            HStack {
-                                if let icon = getAppIcon(for: resource.path) {
-                                    Image(nsImage: icon)
-                                        .resizable()
-                                        .frame(width: 20, height: 20)
-                                } else {
-                                    Image(systemName: "app.fill")
-                                        .frame(width: 20, height: 20)
-                                }
-                                Text(resource.name)
-                                    .lineLimit(1)
-
-                                Spacer()
-
-                                Button(action: {
-                                    removeResource(resource)
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.red)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-
-                    Button(action: { showAppPicker = true }) {
+                    Stepper(value: $estimatedMinutes, in: 15...480, step: 15) {
                         HStack {
-                            Image(systemName: "plus.circle.fill")
-                            Text("Add Blocked Apps")
-                        }
-                    }
-                }
-                
-                Section("Blocked Websites (\\(blockedWebsites.count))") {
-                    HStack(spacing: 8) {
-                        TextField("youtube.com", text: $websiteInput)
-                            .textFieldStyle(.roundedBorder)
-                        
-                        Button("Add") {
-                            addWebsiteFromInput()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(normalizeDomain(websiteInput) == nil)
-                    }
-                    
-                    if blockedWebsites.isEmpty {
-                        Text("No blocked websites selected")
-                            .foregroundColor(.secondary)
-                            .italic()
-                    } else {
-                        ForEach(blockedWebsites) { website in
-                            HStack {
-                                Image(systemName: "globe")
-                                    .foregroundColor(.secondary)
-                                Text(website.name)
-                                    .lineLimit(1)
-                                
-                                Spacer()
-                                
-                                Button(action: {
-                                    removeResource(website)
-                                }) {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.red)
-                                }
-                                .buttonStyle(.plain)
-                            }
+                            Text("Estimated Duration")
+                            Spacer()
+                            Text("\(estimatedMinutes) min")
+                                .foregroundColor(.secondary)
+                                .monospacedDigit()
                         }
                     }
                 }
             }
             .formStyle(.grouped)
+            .accessibilityIdentifier("taskCreation.form")
             .navigationTitle("Create Task")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -216,7 +354,7 @@ struct TaskCreationView: View {
                     Button("Add Task") {
                         createTask()
                     }
-                    .disabled(title.isEmpty)
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .buttonStyle(.borderedProminent)
                 }
             }
@@ -225,9 +363,14 @@ struct TaskCreationView: View {
                     .frame(minWidth: 400, minHeight: 500)
             }
         }
-        .frame(minWidth: 450, minHeight: 550)
+        .frame(minWidth: 620, minHeight: 700)
         .onAppear {
-            loadDefaultApps(for: selectedCategory)
+            applyDefaultAppsIfNeeded(for: selectedCategory)
+        }
+        .onChange(of: pomodoroWorkMinutes) { _, newValue in
+            if isPomodoroMode {
+                deadline = Date().addingTimeInterval(TimeInterval(newValue * 60))
+            }
         }
     }
     
@@ -239,9 +382,8 @@ struct TaskCreationView: View {
         return nil
     }
 
-    private func loadDefaultApps(for category: Category) {
-        let websiteRules = selectedResources.filter { $0.type == .website }
-        let appRules = category.defaultBlockedApps.compactMap { appName in
+    private func defaultAppResources(for category: Category) -> [Resource] {
+        category.defaultBlockedApps.compactMap { appName in
             // Try to find the actual app path
             let possiblePaths = [
                 "/Applications/\(appName).app",
@@ -259,30 +401,211 @@ struct TaskCreationView: View {
             // Return with default path even if not found (user might have it elsewhere)
             return Resource(name: appName, path: "/Applications/\(appName).app", type: .application)
         }
-        
-        selectedResources = appRules + websiteRules
+    }
+
+    private func applyDefaultAppsIfNeeded(for category: Category) {
+        let hasAppRules = selectedResources.contains { $0.type == .application }
+        guard !hasAppRules else { return }
+
+        let websiteRules = selectedResources.filter { $0.type == .website }
+        selectedResources = defaultAppResources(for: category) + websiteRules
+    }
+
+    private func replaceCategoryDefaultApps(for category: Category) {
+        let websiteRules = selectedResources.filter { $0.type == .website }
+        selectedResources = defaultAppResources(for: category) + websiteRules
+    }
+
+    private func clearBlockedResources() {
+        selectedResources.removeAll()
     }
     
     private func applyTemplate(_ template: TaskTemplate) {
         title = template.name
         selectedCategory = template.category
-        deadline = Date().addingTimeInterval(template.duration)
-        loadDefaultApps(for: template.category)
+        isPomodoroMode = template.name == "Pomodoro"
+        deadline = Date().addingTimeInterval(isPomodoroMode ? TimeInterval(pomodoroWorkMinutes * 60) : template.duration)
+        estimatedMinutes = max(15, Int(template.duration / 60))
+        replaceCategoryDefaultApps(for: template.category)
         showTemplates = false  // Collapse templates after selection
     }
 
     private func createTask() {
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedTitle.isEmpty else { return }
+
         let task = Task(
-            title: title,
+            title: normalizedTitle,
             deadline: deadline,
             category: selectedCategory,
             resources: selectedResources,
             isPomodoroMode: isPomodoroMode,
             notes: notes,
-            priority: priority
+            priority: priority,
+            estimatedDuration: TimeInterval(estimatedMinutes * 60),
+            pomodoroWorkDuration: TimeInterval(pomodoroWorkMinutes * 60),
+            pomodoroBreakDuration: TimeInterval(pomodoroBreakMinutes * 60),
+            pomodoroLongBreakDuration: TimeInterval(pomodoroLongBreakMinutes * 60),
+            pomodoroSessionsBeforeLongBreak: pomodoroSessionsBeforeLongBreak
         )
         viewModel.addTask(task)
         dismiss()
+    }
+
+    private func deadlineShortcutButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+    }
+
+    private func setDeadlineTodayAt(hour: Int) {
+        let calendar = Calendar.current
+        let now = Date()
+        let targetToday = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: now) ?? now
+        if targetToday > now {
+            deadline = targetToday
+        } else {
+            deadline = calendar.date(byAdding: .day, value: 1, to: targetToday) ?? now.addingTimeInterval(24 * 60 * 60)
+        }
+    }
+
+    private func setDeadlineTomorrowAt(hour: Int) {
+        let calendar = Calendar.current
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: Date()) ?? Date().addingTimeInterval(24 * 60 * 60)
+        deadline = calendar.date(bySettingHour: hour, minute: 0, second: 0, of: tomorrow) ?? tomorrow
+    }
+
+    private func applyNaturalDeadlineInput() {
+        guard let parsedDate = parseNaturalDeadline(naturalDeadlineInput) else {
+            naturalDeadlineFeedback = "Could not parse that date. Try: today 5pm, tomorrow 9am, or in 2h"
+            return
+        }
+
+        guard parsedDate >= Date() else {
+            naturalDeadlineFeedback = "Parsed time is in the past. Try a future time."
+            return
+        }
+
+        deadline = parsedDate
+
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        naturalDeadlineFeedback = "Deadline set to \(formatter.string(from: parsedDate))"
+    }
+
+    private func parseNaturalDeadline(_ input: String) -> Date? {
+        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        let lower = trimmed.lowercased()
+        let calendar = Calendar.current
+        let now = Date()
+
+        if lower == "today" {
+            return setDate(base: now, timeFragment: "6pm")
+        }
+
+        if lower == "tomorrow" {
+            guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) else { return nil }
+            return setDate(base: tomorrow, timeFragment: "9am")
+        }
+
+        if lower.hasPrefix("in ") {
+            let value = lower.dropFirst(3)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+
+            if let parsed = parseRelativeDuration(value, from: now) {
+                return parsed
+            }
+        }
+
+        if lower.hasPrefix("today ") {
+            let fragment = String(lower.dropFirst("today ".count))
+            return setDate(base: now, timeFragment: fragment)
+        }
+
+        if lower.hasPrefix("tomorrow ") {
+            guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: now) else { return nil }
+            let fragment = String(lower.dropFirst("tomorrow ".count))
+            return setDate(base: tomorrow, timeFragment: fragment)
+        }
+
+        if let absolute = parseAbsoluteDateTime(trimmed) {
+            return absolute
+        }
+
+        return nil
+    }
+
+    private func parseRelativeDuration(_ value: String, from reference: Date) -> Date? {
+        let compact = value.replacingOccurrences(of: " ", with: "")
+
+        if compact.hasSuffix("min"), let minutes = Int(compact.dropLast(3)) {
+            return reference.addingTimeInterval(TimeInterval(minutes * 60))
+        }
+
+        if compact.hasSuffix("m"), let minutes = Int(compact.dropLast()) {
+            return reference.addingTimeInterval(TimeInterval(minutes * 60))
+        }
+
+        if compact.hasSuffix("h"), let hours = Int(compact.dropLast()) {
+            return reference.addingTimeInterval(TimeInterval(hours * 3600))
+        }
+
+        if compact.hasSuffix("d"), let days = Int(compact.dropLast()) {
+            return reference.addingTimeInterval(TimeInterval(days * 86400))
+        }
+
+        return nil
+    }
+
+    private func setDate(base: Date, timeFragment: String) -> Date? {
+        let calendar = Calendar.current
+        let normalized = timeFragment
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        let formats = ["h:mma", "hha", "ha", "h a", "h:mm a", "H:mm", "H"]
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        for format in formats {
+            formatter.dateFormat = format
+            if let parsedTime = formatter.date(from: normalized) {
+                let components = calendar.dateComponents([.hour, .minute], from: parsedTime)
+                return calendar.date(
+                    bySettingHour: components.hour ?? 9,
+                    minute: components.minute ?? 0,
+                    second: 0,
+                    of: base
+                )
+            }
+        }
+
+        return nil
+    }
+
+    private func parseAbsoluteDateTime(_ value: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+
+        let formats = [
+            "yyyy-MM-dd HH:mm",
+            "yyyy-MM-dd h:mma",
+            "MMM d h:mma",
+            "MMM d H:mm"
+        ]
+
+        for format in formats {
+            formatter.dateFormat = format
+            if let date = formatter.date(from: value) {
+                return date
+            }
+        }
+
+        return nil
     }
     
     private func addWebsiteFromInput() {
@@ -330,25 +653,25 @@ struct TemplateButton: View {
     
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: template.icon)
-                    .font(.title2)
+                    .font(.body.weight(.semibold))
                     .foregroundColor(.accentColor)
-                
-                Text(template.name)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                
-                Text(template.description)
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(template.name)
+                        .font(.caption.weight(.medium))
+                        .lineLimit(1)
+
+                    Text(template.description)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 8)
-            .liquidGlassCard(cornerRadius: 10, tint: .accentColor, tintOpacity: 0.15, strokeOpacity: 0.55, shadowOpacity: 0.08)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .contentSurface(cornerRadius: 10, tint: .accentColor, emphasis: 0.08)
         }
         .buttonStyle(.plain)
     }
@@ -392,7 +715,7 @@ struct AppPickerView: View {
                     }
                 }
                 .padding(10)
-                .liquidGlassCard(cornerRadius: 10, tint: .white, tintOpacity: 0.08, strokeOpacity: 0.5, shadowOpacity: 0.06)
+                .contentSurface(cornerRadius: 10, tint: .secondary, emphasis: 0.04)
                 .padding()
 
                 Divider()
@@ -417,7 +740,7 @@ struct AppPickerView: View {
                             ForEach(filteredApps, id: \.path) { app in
                                 AppRowView(
                                     app: app,
-                                    isSelected: selectedResources.contains { $0.type == .application && $0.name == app.name },
+                                    isSelected: selectedResources.contains { $0.type == .application && $0.path == app.path },
                                     onTap: { toggleApp(app) }
                                 )
                             }
@@ -442,7 +765,7 @@ struct AppPickerView: View {
     }
     
     private func toggleApp(_ app: AppInfo) {
-        if let index = selectedResources.firstIndex(where: { $0.type == .application && $0.name == app.name }) {
+        if let index = selectedResources.firstIndex(where: { $0.type == .application && $0.path == app.path }) {
             selectedResources.remove(at: index)
         } else {
             let resource = Resource(name: app.name, path: app.path, type: .application)
@@ -531,12 +854,12 @@ struct AppRowView: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
-            .liquidGlassCard(
+            .contentSurface(
                 cornerRadius: 8,
-                tint: isSelected ? .green : .white,
-                tintOpacity: isSelected ? 0.16 : 0.06,
-                strokeOpacity: isSelected ? 0.7 : 0.4,
-                shadowOpacity: 0.06
+                tint: isSelected ? .green : .secondary,
+                emphasis: isSelected ? 0.16 : 0.04,
+                strokeOpacity: isSelected ? 0.95 : 0.7,
+                shadowOpacity: 0.08
             )
         }
         .buttonStyle(.plain)

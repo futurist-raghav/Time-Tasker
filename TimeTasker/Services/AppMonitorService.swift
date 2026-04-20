@@ -39,9 +39,10 @@ class AppMonitorService: ObservableObject {
     private var notificationObserver: Any?
     private var websiteMonitorTimer: Timer?
     private var blockedBundleIDs: Set<String> = []
-    private var lastWebsiteViolation: (domain: String, at: Date)?
     private var hostsRulesInstalled = false
     private let hostsBlocker = HostsFileBlocker()
+    private var activeViolationKey: String?
+    private var isPresentingViolationAlert = false
 
     // System apps that should never be blocked
     private let systemApps: Set<String> = [
@@ -141,18 +142,47 @@ class AppMonitorService: ObservableObject {
         guard isMonitoring else { return }
         
         if systemApps.contains(appName) {
+            clearViolationIfNeeded()
             print("✅ System app allowed: \(appName)")
             return
         }
         
         if isAppBlocked(appName: appName, bundleID: bundleID) {
-            blockApp(app, name: appName)
+            let violationKey = appViolationKey(appName: appName, bundleID: bundleID)
+            let shouldNotify = markViolationAndShouldNotify(violationKey)
+            blockApp(app, name: appName, shouldNotify: shouldNotify)
             return
         }
         
         if let blockedDomain = blockedDomainIfNeeded(for: appName, bundleID: bundleID) {
-            blockWebsite(domain: blockedDomain, appName: appName, bundleID: bundleID)
+            let violationKey = "website:\(blockedDomain)"
+            let shouldNotify = markViolationAndShouldNotify(violationKey)
+            blockWebsite(domain: blockedDomain, appName: appName, bundleID: bundleID, shouldNotify: shouldNotify)
+            return
         }
+
+        clearViolationIfNeeded()
+    }
+
+    private func appViolationKey(appName: String, bundleID: String) -> String {
+        if !bundleID.isEmpty {
+            return "app:\(bundleID.lowercased())"
+        }
+
+        return "app:\(appName.lowercased())"
+    }
+
+    private func markViolationAndShouldNotify(_ key: String) -> Bool {
+        if activeViolationKey == key {
+            return false
+        }
+
+        activeViolationKey = key
+        return true
+    }
+
+    private func clearViolationIfNeeded() {
+        activeViolationKey = nil
     }
 
     func startMonitoring(with resources: [Resource]) {
@@ -179,7 +209,8 @@ class AppMonitorService: ObservableObject {
         })
         blockedAppName = ""
         blockedWebsite = ""
-        lastWebsiteViolation = nil
+        activeViolationKey = nil
+        isPresentingViolationAlert = false
         websiteEnforcementMode = .inactive
         
         isMonitoring = true
@@ -216,7 +247,8 @@ class AppMonitorService: ObservableObject {
         blockedAppName = ""
         blockedWebsite = ""
         websiteEnforcementMode = .inactive
-        lastWebsiteViolation = nil
+        activeViolationKey = nil
+        isPresentingViolationAlert = false
         stopWebsiteMonitorTimer()
 
         if hostsRulesInstalled {
@@ -269,17 +301,25 @@ class AppMonitorService: ObservableObject {
         let bundleID = frontmost.bundleIdentifier ?? ""
         
         if systemApps.contains(appName) {
+            clearViolationIfNeeded()
             return
         }
         
         if isAppBlocked(appName: appName, bundleID: bundleID) {
-            blockApp(frontmost, name: appName)
+            let violationKey = appViolationKey(appName: appName, bundleID: bundleID)
+            let shouldNotify = markViolationAndShouldNotify(violationKey)
+            blockApp(frontmost, name: appName, shouldNotify: shouldNotify)
             return
         }
         
         if let blockedDomain = blockedDomainIfNeeded(for: appName, bundleID: bundleID) {
-            blockWebsite(domain: blockedDomain, appName: appName, bundleID: bundleID)
+            let violationKey = "website:\(blockedDomain)"
+            let shouldNotify = markViolationAndShouldNotify(violationKey)
+            blockWebsite(domain: blockedDomain, appName: appName, bundleID: bundleID, shouldNotify: shouldNotify)
+            return
         }
+
+        clearViolationIfNeeded()
     }
     
     private func isAppBlocked(appName: String, bundleID: String) -> Bool {
@@ -368,34 +408,30 @@ class AppMonitorService: ObservableObject {
         return response.stringValue
     }
     
-    private func blockWebsite(domain: String, appName: String, bundleID: String) {
-        if let lastViolation = lastWebsiteViolation,
-           lastViolation.domain == domain,
-           Date().timeIntervalSince(lastViolation.at) < 4 {
-            bringTimeTaskerToFront()
-            return
-        }
-        
-        lastWebsiteViolation = (domain, Date())
+    private func blockWebsite(domain: String, appName: String, bundleID: String, shouldNotify: Bool) {
         blockedWebsite = domain
         print("🚫 BLOCKING website: \(domain)")
         
         redirectFrontTabToBlank(for: appName, bundleID: bundleID)
         
-        DispatchQueue.main.async { [weak self] in
-            self?.showBlockedWebsiteAlert(domain: domain)
+        if shouldNotify {
+            DispatchQueue.main.async { [weak self] in
+                self?.showBlockedWebsiteAlert(domain: domain)
+            }
         }
         
         bringTimeTaskerToFront()
     }
 
-    private func blockApp(_ app: NSRunningApplication, name: String) {
+    private func blockApp(_ app: NSRunningApplication, name: String, shouldNotify: Bool) {
         print("🚫 BLOCKING app: \(name)")
         blockedAppName = name
         
-        // Show alert on main thread
-        DispatchQueue.main.async { [weak self] in
-            self?.showBlockedAlert(appName: name)
+        if shouldNotify {
+            // Show alert on main thread
+            DispatchQueue.main.async { [weak self] in
+                self?.showBlockedAlert(appName: name)
+            }
         }
         
         // Terminate the app
@@ -435,6 +471,10 @@ class AppMonitorService: ObservableObject {
     }
     
     private func showBlockedAlert(appName: String) {
+        guard !isPresentingViolationAlert else { return }
+        isPresentingViolationAlert = true
+        defer { isPresentingViolationAlert = false }
+
         let alert = NSAlert()
         alert.messageText = "🚫 App Blocked"
         alert.informativeText = "\"\(appName)\" is blocked during this focus session.\n\nRemove it from your task's blocked list to use it again."
@@ -449,6 +489,10 @@ class AppMonitorService: ObservableObject {
     }
     
     private func showBlockedWebsiteAlert(domain: String) {
+        guard !isPresentingViolationAlert else { return }
+        isPresentingViolationAlert = true
+        defer { isPresentingViolationAlert = false }
+
         let alert = NSAlert()
         alert.messageText = "🌐 Website Blocked"
         alert.informativeText = "\"\(domain)\" is blocked during this focus session.\n\nRemove it from your task's blocked websites to access it again."

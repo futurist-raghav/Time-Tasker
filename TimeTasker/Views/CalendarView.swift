@@ -283,7 +283,7 @@ struct CalendarTaskRow: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .liquidGlassCard(cornerRadius: 8, tint: statusColor, tintOpacity: 0.12, strokeOpacity: 0.5, shadowOpacity: 0.08)
+        .contentSurface(cornerRadius: 8, tint: statusColor, emphasis: 0.1, strokeOpacity: 0.85, shadowOpacity: 0.08)
     }
     
     private var statusColor: Color {
@@ -308,11 +308,11 @@ struct CalendarToolbarButton: View {
                 .frame(width: 24, height: 24)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.secondary.opacity(0.12))
                 )
                 .overlay(
                     Circle()
-                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                        .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)

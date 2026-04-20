@@ -34,6 +34,11 @@ struct PlatformReadinessService {
         return "macOS \(version.majorVersion).\(version.minorVersion) \(codename(for: version.majorVersion))"
     }
 
+    var displayOSLabel: String {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        return "macOS \(version.majorVersion).\(version.minorVersion)"
+    }
+
     var supportLabel: String {
         let major = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
         if major >= 27 {
@@ -52,6 +57,12 @@ struct PlatformReadinessService {
         let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
         let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "-"
         return "v\(shortVersion) (\(build))"
+    }
+
+    var displayVersionLabel: String {
+        let shortVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "-"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "-"
+        return "\(shortVersion) build \(build)"
     }
 
     private func codename(for majorVersion: Int) -> String {

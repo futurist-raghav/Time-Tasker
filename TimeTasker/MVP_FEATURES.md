@@ -1,6 +1,6 @@
 # Time Tasker's - Minimum Viable Product Features
 
-**Version**: 4.1  
+**Version**: 4.2  
 **Platform**: macOS (Apple Silicon only, arm64)  
 **Purpose**: Distraction-blocking productivity application for focused work sessions
 

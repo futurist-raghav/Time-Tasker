@@ -8,356 +8,631 @@
 import SwiftUI
 import Combine
 
+private enum DashboardSection: String, CaseIterable, Identifiable {
+    case today = "Today"
+    case calendar = "Calendar"
+    case history = "History"
+    case analytics = "Analytics"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .today:
+            return "checklist"
+        case .calendar:
+            return "calendar"
+        case .history:
+            return "clock.arrow.circlepath"
+        case .analytics:
+            return "chart.bar"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .today:
+            return "What to do next"
+        case .calendar:
+            return "Deadlines and due dates"
+        case .history:
+            return "Completed sessions"
+        case .analytics:
+            return "Progress and trends"
+        }
+    }
+}
+
 struct ContentView: View {
-    // Use environment objects from App
     @EnvironmentObject var taskViewModel: TaskListViewModel
     @EnvironmentObject var audioViewModel: AudioPlayerViewModel
-    @EnvironmentObject var displaySettings: AppDisplaySettings
     @StateObject private var blockerViewModel = AppBlockerViewModel()
 
     @State private var showTaskCreation = false
-    @State private var showCalendar = false
-    @State private var showHistory = false
-    @State private var showAnalytics = false
+    @State private var selectedSection: DashboardSection? = .today
+    @State private var searchQuery = ""
+    @State private var selectedTaskID: Task.ID?
+    @State private var splitVisibility: NavigationSplitViewVisibility = .all
+
+    private var filteredTasks: [Task] {
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else {
+            return taskViewModel.tasks
+        }
+
+        return taskViewModel.tasks.filter { task in
+            task.title.localizedCaseInsensitiveContains(query)
+                || task.category.rawValue.localizedCaseInsensitiveContains(query)
+                || task.notes.localizedCaseInsensitiveContains(query)
+                || task.resources.contains(where: { $0.name.localizedCaseInsensitiveContains(query) })
+        }
+    }
+
+    private var selectedTask: Task? {
+        if let selectedTaskID {
+            return taskViewModel.tasks.first(where: { $0.id == selectedTaskID })
+        }
+
+        return taskViewModel.activeTask ?? filteredTasks.first
+    }
 
     var body: some View {
-        ZStack {
-            LiquidGlassBackground()
+        GeometryReader { proxy in
+            let logicalWidth = max(proxy.size.width, 1)
+            let logicalHeight = max(proxy.size.height, 1)
 
-            VStack(spacing: 14) {
-                HeaderView(showCalendar: $showCalendar, showHistory: $showHistory, showAnalytics: $showAnalytics)
-                    .liquidGlassCard(cornerRadius: 20, tint: .white, tintOpacity: 0.1)
-
-                if blockerViewModel.isMonitoring {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(Color.green)
-                                .frame(width: 8, height: 8)
-                            Text("Focus Blocking Active")
-                                .font(.caption)
-                                .foregroundColor(.green)
-                            Spacer()
-                            Text("\(blockerViewModel.blockedAppsCount) apps + \(blockerViewModel.blockedWebsitesCount) sites blocked")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-
-                        if blockerViewModel.blockedWebsitesCount > 0 {
-                            Text(blockerViewModel.websiteEnforcementMode.label)
-                                .font(.caption2)
-                                .foregroundColor(websiteEnforcementColor)
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .liquidGlassCard(cornerRadius: 14, tint: .green, tintOpacity: 0.16)
+            navigationShell(logicalWidth: logicalWidth)
+                .frame(width: logicalWidth, height: logicalHeight, alignment: .topLeading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .onAppear {
+                    updateSelection(with: taskViewModel.tasks)
+                    updateSplitVisibility(for: logicalWidth)
                 }
-
-                ViewThatFits(in: .vertical) {
-                    focusSections
-                    ScrollView {
-                        focusSections
-                    }
-                    .scrollIndicators(.hidden)
+                .onChange(of: logicalWidth) { _, newWidth in
+                    updateSplitVisibility(for: newWidth)
                 }
-                .frame(maxWidth: .infinity, alignment: .top)
-
-                MusicPlayerView(viewModel: audioViewModel)
-                    .padding(14)
-                    .frame(minHeight: 180, maxHeight: audioViewModel.playlist.isEmpty ? 240 : 320)
-                    .liquidGlassCard(cornerRadius: 18, tint: .teal, tintOpacity: 0.08)
-            }
-            .padding(14)
-            .scaleEffect(displaySettings.interfaceScale, anchor: .top)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .animation(.easeInOut(duration: 0.2), value: displaySettings.interfaceScale)
-            .accessibilityIdentifier("main.content")
         }
-        .frame(
-            minWidth: 520 * displaySettings.interfaceScale,
-            minHeight: 720 * displaySettings.interfaceScale
-        )
+    }
+
+    private func navigationShell(logicalWidth: CGFloat) -> some View {
+        NavigationSplitView(columnVisibility: $splitVisibility) {
+            sidebar
+                .navigationSplitViewColumnWidth(
+                    min: 180,
+                    ideal: min(230, logicalWidth * 0.22),
+                    max: 260
+                )
+        } content: {
+            contentColumn
+                .navigationSplitViewColumnWidth(
+                    min: logicalWidth < 980 ? 440 : 560,
+                    ideal: logicalWidth < 980 ? 520 : 760,
+                    max: logicalWidth < 980 ? 680 : 980
+                )
+        } detail: {
+            inspectorColumn
+                .navigationSplitViewColumnWidth(
+                    min: logicalWidth < 980 ? 260 : 300,
+                    ideal: logicalWidth < 980 ? 290 : 340,
+                    max: 400
+                )
+        }
+        .navigationSplitViewStyle(.balanced)
+        .searchable(text: $searchQuery, placement: .toolbar, prompt: "Search tasks")
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button(action: { showTaskCreation = true }) {
+                    Label("New Task", systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("toolbar.newTask")
+
+                Button(action: startFocusFromSelection) {
+                    Label("Start Focus", systemImage: "timer")
+                }
+                .buttonStyle(.bordered)
+                .disabled(filteredTasks.allSatisfy { $0.isExpired })
+                .accessibilityIdentifier("toolbar.startFocus")
+            }
+
+            ToolbarItem(placement: .automatic) {
+                Button(action: cycleSection) {
+                    Label("Next View", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .help("Cycle dashboard section")
+            }
+        }
+        .background {
+            LiquidGlassBackground()
+        }
         .sheet(isPresented: $showTaskCreation) {
             TaskCreationView(viewModel: taskViewModel)
+                .frame(minWidth: 620, minHeight: 700)
         }
         .onReceive(NotificationCenter.default.publisher(for: .newTaskShortcut)) { _ in
             showTaskCreation = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openDashboardSection)) { notification in
+            guard let target = notification.userInfo?["section"] as? String,
+                  let section = DashboardSection(rawValue: target) else {
+                return
+            }
+
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedSection = section
+            }
+        }
+        .onReceive(taskViewModel.$tasks) { tasks in
+            updateSelection(with: tasks)
+        }
     }
 
-    private var focusSections: some View {
-        VStack(spacing: 12) {
-            if showCalendar {
+    private var sidebar: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(DashboardSection.allCases) { section in
+                    SidebarSectionButton(
+                        section: section,
+                        isSelected: (selectedSection ?? .today) == section,
+                        action: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedSection = section
+                            }
+                        }
+                    )
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+        }
+        .navigationTitle("Time Tasker")
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    @ViewBuilder
+    private var contentColumn: some View {
+        switch selectedSection ?? .today {
+        case .today:
+            TodayDashboardView(
+                viewModel: taskViewModel,
+                blockerViewModel: blockerViewModel,
+                searchQuery: searchQuery,
+                selectedTaskID: $selectedTaskID,
+                onAddTask: { showTaskCreation = true }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .navigationTitle("Today")
+        case .calendar:
+            ScrollView {
                 CalendarView(viewModel: taskViewModel)
-                    .padding(14)
-                    .liquidGlassCard(cornerRadius: 16, tint: .cyan, tintOpacity: 0.08)
+                    .padding(16)
             }
-
-            if showHistory {
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .navigationTitle("Calendar")
+        case .history:
+            ScrollView {
                 TaskHistoryView(viewModel: taskViewModel)
-                    .padding(14)
-                    .liquidGlassCard(cornerRadius: 16, tint: .indigo, tintOpacity: 0.08)
+                    .padding(16)
             }
-
-            if showAnalytics {
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .navigationTitle("History")
+        case .analytics:
+            ScrollView {
                 AnalyticsView(viewModel: taskViewModel)
-                    .padding(14)
-                    .liquidGlassCard(cornerRadius: 16, tint: .blue, tintOpacity: 0.1)
+                    .padding(16)
             }
-
-            if let activeTask = taskViewModel.activeTask {
-                ActiveTaskView(task: activeTask, onStop: {
-                    taskViewModel.stopTask()
-                })
-                .padding(14)
-                .liquidGlassCard(
-                    cornerRadius: 16,
-                    tint: activeTask.isExpired ? .red : .green,
-                    tintOpacity: activeTask.isExpired ? 0.16 : 0.12
-                )
-            }
-
-            TaskListView(viewModel: taskViewModel, onAddTask: {
-                showTaskCreation = true
-            })
-            .padding(14)
-            .liquidGlassCard(cornerRadius: 16, tint: .white, tintOpacity: 0.08)
-        }
-        .padding(.horizontal, 2)
-    }
-
-    private var websiteEnforcementColor: Color {
-        switch blockerViewModel.websiteEnforcementMode {
-        case .inactive:
-            return .secondary
-        case .browserFallback:
-            return .orange
-        case .systemWide:
-            return .green
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .navigationTitle("Analytics")
         }
     }
-}
 
-struct HeaderView: View {
-    @Environment(\.colorScheme) private var colorScheme
-    private let platform = PlatformReadinessService.shared
-    @Binding var showCalendar: Bool
-    @Binding var showHistory: Bool
-    @Binding var showAnalytics: Bool
-    @State private var timeString = ""
-    @State private var dateString = ""
+    private var inspectorColumn: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                if blockerViewModel.isMonitoring {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(.green)
+                            .frame(width: 8, height: 8)
+                        Text("Focus Blocking Active")
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(.green)
+                        Spacer()
+                    }
 
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
-    var body: some View {
-        VStack(spacing: 12) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Time Tasker")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .accessibilityIdentifier("header.appTitle")
-
-                    Text(dateString)
+                    Text("\(blockerViewModel.blockedAppsCount) apps and \(blockerViewModel.blockedWebsitesCount) sites currently blocked")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
-                Spacer()
+                if let activeTask = taskViewModel.activeTask {
+                    ActiveTaskView(task: activeTask, onStop: {
+                        taskViewModel.stopTask()
+                    })
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("No active focus session", systemImage: "moon.zzz")
+                            .font(.subheadline.weight(.medium))
+                        Text("Pick a task and start focus to pin live session status here.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .contentSurface(cornerRadius: 12, tint: .teal, emphasis: 0.05)
+                }
 
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(timeString)
-                        .font(.system(size: 40, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(
-                            LinearGradient(
-                                colors: colorScheme == .dark
-                                    ? [.white.opacity(0.95), .white.opacity(0.65)]
-                                    : [.black.opacity(0.82), .black.opacity(0.62)],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
+                if (selectedSection ?? .today) != .today {
+                    VStack(spacing: 10) {
+                        DashboardMetricCard(
+                            title: "Pending",
+                            value: "\(taskViewModel.tasks.filter { !$0.isExpired }.count)",
+                            systemImage: "hourglass",
+                            tint: .blue
                         )
 
-                    Text("Local Time")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+                        DashboardMetricCard(
+                            title: "Completed",
+                            value: "\(taskViewModel.taskHistory.count)",
+                            systemImage: "checkmark.circle",
+                            tint: .green
+                        )
+
+                        DashboardMetricCard(
+                            title: "Today Focus",
+                            value: taskViewModel.todayFocusTimeFormatted,
+                            systemImage: "clock.badge",
+                            tint: .orange
+                        )
+                    }
                 }
+
+                MusicPlayerView(viewModel: audioViewModel)
+                    .padding(12)
+                    .contentSurface(cornerRadius: 14, tint: .teal, emphasis: 0.04)
             }
-
-            HStack(spacing: 10) {
-                HeaderTogglePill(
-                    title: "Calendar",
-                    systemImage: showCalendar ? "calendar.circle.fill" : "calendar.circle",
-                    isActive: showCalendar
-                ) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showCalendar.toggle()
-                        if showCalendar { showHistory = false; showAnalytics = false }
-                    }
-                }
-
-                HeaderTogglePill(
-                    title: "History",
-                    systemImage: "clock.arrow.circlepath",
-                    isActive: showHistory
-                ) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showHistory.toggle()
-                        if showHistory { showCalendar = false; showAnalytics = false }
-                    }
-                }
-
-                HeaderTogglePill(
-                    title: "Analytics",
-                    systemImage: showAnalytics ? "chart.bar.fill" : "chart.bar",
-                    isActive: showAnalytics
-                ) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        showAnalytics.toggle()
-                        if showAnalytics { showCalendar = false; showHistory = false }
-                    }
-                }
-
-                Spacer()
-            }
-
-            SystemReadinessRow(
-                architectureLabel: platform.architectureLabel,
-                osLabel: platform.osLabel,
-                runtimeLabel: platform.runtimeLabel,
-                supportLabel: platform.supportLabel,
-                appVersionLabel: platform.appVersionLabel,
-                isRosettaTranslated: platform.isRosettaTranslated
-            )
+            .padding(16)
         }
-        .padding(16)
-        .onReceive(timer) { newTime in
-            updateTime(newTime)
+        .navigationTitle("Inspector")
+        .frame(minWidth: 300, idealWidth: 340, maxWidth: 400)
+    }
+
+    private func startFocusFromSelection() {
+        if let selectedTask {
+            taskViewModel.startTask(selectedTask)
+            selectedTaskID = selectedTask.id
+            return
         }
-        .onAppear {
-            updateTime(Date())
+
+        if let fallback = filteredTasks.first(where: { !$0.isExpired }) {
+            taskViewModel.startTask(fallback)
+            selectedTaskID = fallback.id
         }
     }
-    
-    private func updateTime(_ date: Date) {
-        let timeFormatter = DateFormatter()
-        timeFormatter.timeStyle = .medium
-        timeString = timeFormatter.string(from: date)
-        
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "EEEE, MMM d"
-        dateString = dateFormatter.string(from: date)
+
+    private func cycleSection() {
+        let all = DashboardSection.allCases
+        guard let selectedSection else {
+            self.selectedSection = all.first
+            return
+        }
+
+        guard let index = all.firstIndex(of: selectedSection) else {
+            self.selectedSection = all.first
+            return
+        }
+
+        let nextIndex = all.index(after: index)
+        self.selectedSection = nextIndex == all.endIndex ? all.first : all[nextIndex]
+    }
+
+    private func updateSplitVisibility(for width: CGFloat) {
+        if width < 980 {
+            splitVisibility = .doubleColumn
+        } else {
+            splitVisibility = .all
+        }
+    }
+
+    private func updateSelection(with tasks: [Task]) {
+        if let selectedTaskID, !tasks.contains(where: { $0.id == selectedTaskID }) {
+            self.selectedTaskID = nil
+        }
+
+        if self.selectedTaskID == nil {
+            self.selectedTaskID = taskViewModel.activeTask?.id ?? filteredTasks.first?.id
+        }
     }
 }
 
-struct HeaderTogglePill: View {
-    let title: String
-    let systemImage: String
-    let isActive: Bool
+private struct SidebarSectionButton: View {
+    let section: DashboardSection
+    let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Label(title, systemImage: systemImage)
-                .font(.caption)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    Capsule()
-                        .fill(isActive ? Color.accentColor.opacity(0.24) : Color.white.opacity(0.08))
-                )
-                .overlay(
-                    Capsule()
-                        .stroke(isActive ? Color.accentColor.opacity(0.8) : Color.white.opacity(0.25), lineWidth: 1)
-                )
-                .foregroundColor(isActive ? .accentColor : .primary)
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: section.systemImage)
+                    .foregroundColor(isSelected ? .accentColor : .secondary)
+                    .frame(width: 18)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(section.rawValue)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.primary)
+                    Text(section.subtitle)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .contentSurface(
+                cornerRadius: 10,
+                tint: isSelected ? .accentColor : .secondary,
+                emphasis: isSelected ? 0.12 : 0.03,
+                strokeOpacity: isSelected ? 0.95 : 0.55,
+                shadowOpacity: 0.05
+            )
         }
         .buttonStyle(.plain)
     }
 }
 
-struct SystemReadinessRow: View {
-    let architectureLabel: String
-    let osLabel: String
-    let runtimeLabel: String
-    let supportLabel: String
-    let appVersionLabel: String
-    let isRosettaTranslated: Bool
+private struct TodayDashboardView: View {
+    @ObservedObject var viewModel: TaskListViewModel
+    @ObservedObject var blockerViewModel: AppBlockerViewModel
+    let searchQuery: String
+    @Binding var selectedTaskID: Task.ID?
+    let onAddTask: () -> Void
+
+    private var dueSoonTasks: [Task] {
+        let now = Date()
+        let horizon = now.addingTimeInterval(2 * 3600)
+
+        return viewModel.tasks
+            .filter { !$0.isExpired && !$0.isActive && $0.deadline <= horizon }
+            .sorted { $0.deadline < $1.deadline }
+    }
+
+    private var nextActionTasks: [Task] {
+        let candidates = viewModel.tasks
+            .filter { !$0.isExpired && !$0.isActive }
+            .sorted { lhs, rhs in
+                if lhs.priority == rhs.priority {
+                    return lhs.deadline < rhs.deadline
+                }
+
+                return priorityRank(lhs.priority) > priorityRank(rhs.priority)
+            }
+
+        if dueSoonTasks.isEmpty {
+            return Array(candidates.prefix(6))
+        }
+
+        return Array(dueSoonTasks.prefix(6))
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
-            SystemPill(icon: "cpu", text: architectureLabel, tint: .mint)
-            SystemPill(icon: "laptopcomputer", text: osLabel, tint: .blue)
-            SystemPill(icon: "gauge.with.dots.needle.67percent", text: runtimeLabel, tint: isRosettaTranslated ? .orange : .green)
-            SystemPill(icon: "sparkles", text: supportLabel, tint: .teal)
+        VStack(alignment: .leading, spacing: 16) {
+            todayStrip
 
-            Spacer()
+            if blockerViewModel.isMonitoring {
+                HStack(spacing: 8) {
+                    Image(systemName: "shield.lefthalf.filled")
+                        .foregroundColor(.green)
+                    Text("Blocking profile enforced")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Text("\(blockerViewModel.blockedAppsCount) apps · \(blockerViewModel.blockedWebsitesCount) sites")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(12)
+                .contentSurface(cornerRadius: 14, tint: .green, emphasis: 0.08)
+            }
 
-            Text(appVersionLabel)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .monospacedDigit()
+            if !nextActionTasks.isEmpty {
+                upNextRail
+            }
+
+            TaskListView(
+                viewModel: viewModel,
+                onAddTask: onAddTask,
+                searchQuery: searchQuery,
+                selectedTaskID: $selectedTaskID
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(14)
+            .contentSurface(cornerRadius: 16, tint: .blue, emphasis: 0.04)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var upNextRail: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("What should I do next?")
+                    .font(.headline)
+
+                Spacer()
+
+                Button(action: startTopTask) {
+                    Label("Start Top Task", systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(nextActionTasks) { task in
+                        TodayTaskChip(
+                            task: task,
+                            isSelected: selectedTaskID == task.id,
+                            action: {
+                                selectedTaskID = task.id
+                            }
+                        )
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+        }
+        .padding(12)
+        .contentSurface(cornerRadius: 14, tint: .indigo, emphasis: 0.06)
+    }
+
+    private func startTopTask() {
+        guard let task = nextActionTasks.first else { return }
+        selectedTaskID = task.id
+        viewModel.startTask(task)
+    }
+
+    private func priorityRank(_ priority: TaskPriority) -> Int {
+        switch priority {
+        case .urgent: return 4
+        case .high: return 3
+        case .medium: return 2
+        case .low: return 1
+        }
+    }
+
+    private var todayStrip: some View {
+        HStack(spacing: 10) {
+            DashboardMetricCard(
+                title: "Active",
+                value: viewModel.activeTask == nil ? "0" : "1",
+                systemImage: "timer",
+                tint: .green
+            )
+
+            DashboardMetricCard(
+                title: "Due Soon",
+                value: "\(dueSoonTasks.count)",
+                systemImage: "clock.badge.exclamationmark",
+                tint: .orange
+            )
+
+            DashboardMetricCard(
+                title: "Completed Today",
+                value: "\(viewModel.tasksCompletedToday)",
+                systemImage: "checkmark.seal",
+                tint: .blue
+            )
         }
     }
 }
 
-struct SystemPill: View {
-    let icon: String
-    let text: String
+private struct TodayTaskChip: View {
+    let task: Task
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: task.category.iconName)
+                    .foregroundColor(priorityTint)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(task.title)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
+
+                    Text(task.formattedTimeRemaining)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .frame(width: 240, alignment: .leading)
+            .contentSurface(
+                cornerRadius: 10,
+                tint: isSelected ? .accentColor : priorityTint,
+                emphasis: isSelected ? 0.12 : 0.06,
+                strokeOpacity: 0.9,
+                shadowOpacity: 0.08
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var priorityTint: Color {
+        switch task.priority {
+        case .low: return .gray
+        case .medium: return .blue
+        case .high: return .orange
+        case .urgent: return .red
+        }
+    }
+}
+
+private struct DashboardMetricCard: View {
+    let title: String
+    let value: String
+    let systemImage: String
     let tint: Color
 
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.caption2)
-            Text(text)
-                .lineLimit(1)
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.title3)
+                .foregroundColor(tint)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.headline.monospacedDigit())
+                Text(title)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer(minLength: 0)
         }
-        .font(.caption2)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(
-            Capsule()
-                .fill(tint.opacity(0.16))
-        )
-        .overlay(
-            Capsule()
-                .stroke(tint.opacity(0.45), lineWidth: 1)
-        )
-        .foregroundColor(.primary)
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentSurface(cornerRadius: 12, tint: tint, emphasis: 0.08)
     }
 }
 
 struct ActiveTaskView: View {
     let task: Task
     let onStop: () -> Void
-    
+
     @State private var showingRestrictionDetails = false
-    
+
     private var blockedApps: [Resource] {
         task.resources.filter { $0.type == .application }
     }
-    
+
     private var blockedWebsites: [Resource] {
         task.resources.filter { $0.type == .website }
     }
 
     var body: some View {
         VStack(spacing: 12) {
-            // Header row
             HStack {
                 HStack(spacing: 6) {
                     Circle()
                         .fill(statusColor)
                         .frame(width: 8, height: 8)
-                    
+
                     Text(statusText)
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(statusColor)
-                    
-                    // Pomodoro badge
+
                     if task.isPomodoroMode {
                         HStack(spacing: 4) {
                             Image(systemName: "timer")
@@ -385,7 +660,6 @@ struct ActiveTaskView: View {
                 .tint(.red)
             }
 
-            // Task info
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(task.title)
@@ -393,7 +667,6 @@ struct ActiveTaskView: View {
                         .fontWeight(.semibold)
 
                     HStack(spacing: 8) {
-                        // Category badge
                         HStack(spacing: 4) {
                             Image(systemName: task.category.iconName)
                             Text(task.category.rawValue)
@@ -404,8 +677,7 @@ struct ActiveTaskView: View {
                         .background(Color.accentColor.opacity(0.1))
                         .foregroundColor(.accentColor)
                         .cornerRadius(6)
-                        
-                        // Apps count
+
                         Button(action: { showingRestrictionDetails.toggle() }) {
                             HStack(spacing: 4) {
                                 Image(systemName: "shield.lefthalf.filled")
@@ -414,7 +686,7 @@ struct ActiveTaskView: View {
                             .font(.caption)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
-                            .background(Color.secondary.opacity(0.1))
+                            .background(Color.secondary.opacity(0.12))
                             .foregroundColor(.secondary)
                             .cornerRadius(6)
                         }
@@ -424,34 +696,32 @@ struct ActiveTaskView: View {
 
                 Spacer()
 
-                // Timer display
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(task.formattedTimeRemaining)
                         .font(.system(size: 28, weight: .medium, design: .monospaced))
                         .foregroundColor(timerColor)
-                    
+
                     Text(task.pomodoroIsOnBreak ? "break time" : "remaining")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
             }
-            
-            // Blocked restrictions popover
+
             if showingRestrictionDetails {
                 Divider()
-                
+
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Blocked During Focus")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
-                    
+
                     if blockedApps.isEmpty && blockedWebsites.isEmpty {
                         Text("No restrictions selected")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    
+
                     if !blockedApps.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
@@ -470,7 +740,7 @@ struct ActiveTaskView: View {
                             }
                         }
                     }
-                    
+
                     if !blockedWebsites.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
@@ -493,7 +763,7 @@ struct ActiveTaskView: View {
             }
         }
     }
-    
+
     private var statusColor: Color {
         if task.isExpired {
             return .red
@@ -503,7 +773,7 @@ struct ActiveTaskView: View {
             return .green
         }
     }
-    
+
     private var statusText: String {
         if task.isExpired {
             return "Time Expired"
@@ -513,7 +783,7 @@ struct ActiveTaskView: View {
             return "Active Task"
         }
     }
-    
+
     private var timerColor: Color {
         if task.isExpired {
             return .red
@@ -529,5 +799,5 @@ struct ActiveTaskView: View {
     ContentView()
         .environmentObject(TaskListViewModel())
         .environmentObject(AudioPlayerViewModel())
-    .environmentObject(AppDisplaySettings())
+        .environmentObject(AppDisplaySettings())
 }

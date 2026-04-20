@@ -106,7 +106,7 @@ struct AnalyticsView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(10)
-                .liquidGlassCard(cornerRadius: 10, tint: .yellow, tintOpacity: 0.14)
+                .contentSurface(cornerRadius: 10, tint: .yellow, emphasis: 0.1)
             }
         }
     }
@@ -148,7 +148,7 @@ struct StatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .liquidGlassCard(cornerRadius: 10, tint: color, tintOpacity: 0.15)
+        .contentSurface(cornerRadius: 10, tint: color, emphasis: 0.1)
     }
 }
 

@@ -69,7 +69,21 @@ struct Task: Identifiable, Codable {
     var pomodoroCurrentSession: Int
     var pomodoroIsOnBreak: Bool
 
-    init(id: UUID = UUID(), title: String, deadline: Date, category: Category, resources: [Resource] = [], isPomodoroMode: Bool = false, notes: String = "", priority: TaskPriority = .medium, estimatedDuration: TimeInterval = 3600) {
+    init(
+        id: UUID = UUID(),
+        title: String,
+        deadline: Date,
+        category: Category,
+        resources: [Resource] = [],
+        isPomodoroMode: Bool = false,
+        notes: String = "",
+        priority: TaskPriority = .medium,
+        estimatedDuration: TimeInterval = 3600,
+        pomodoroWorkDuration: TimeInterval = 25 * 60,
+        pomodoroBreakDuration: TimeInterval = 5 * 60,
+        pomodoroLongBreakDuration: TimeInterval = 15 * 60,
+        pomodoroSessionsBeforeLongBreak: Int = 4
+    ) {
         self.id = id
         self.title = title
         self.deadline = deadline
@@ -86,10 +100,10 @@ struct Task: Identifiable, Codable {
         
         // Pomodoro defaults
         self.isPomodoroMode = isPomodoroMode
-        self.pomodoroWorkDuration = 25 * 60
-        self.pomodoroBreakDuration = 5 * 60
-        self.pomodoroLongBreakDuration = 15 * 60
-        self.pomodoroSessionsBeforeLongBreak = 4
+        self.pomodoroWorkDuration = pomodoroWorkDuration
+        self.pomodoroBreakDuration = pomodoroBreakDuration
+        self.pomodoroLongBreakDuration = pomodoroLongBreakDuration
+        self.pomodoroSessionsBeforeLongBreak = pomodoroSessionsBeforeLongBreak
         self.pomodoroCurrentSession = 1
         self.pomodoroIsOnBreak = false
     }

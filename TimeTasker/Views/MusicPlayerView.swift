@@ -111,7 +111,7 @@ struct MusicPlayerView: View {
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .liquidGlassCard(cornerRadius: 6, tint: .white, tintOpacity: 0.08, strokeOpacity: 0.45, shadowOpacity: 0.08)
+                        .contentSurface(cornerRadius: 6, tint: .secondary, emphasis: 0.04, strokeOpacity: 0.7, shadowOpacity: 0.06)
                 }
                 .padding(.horizontal)
 
@@ -218,11 +218,11 @@ struct PlayerIconButton: View {
                 .frame(width: 26, height: 26)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.08))
+                        .fill(Color.secondary.opacity(0.14))
                 )
                 .overlay(
                     Circle()
-                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                        .stroke(Color.secondary.opacity(0.35), lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)

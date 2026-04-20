@@ -10,7 +10,7 @@ import AppKit
 import Combine
 
 #if arch(x86_64)
-#error("Time Tasker 4.1 and later support Apple Silicon (arm64) only.")
+#error("Time Tasker 4.2 and later support Apple Silicon (arm64) only.")
 #endif
 
 @main
@@ -19,6 +19,7 @@ struct TimeTaskerApp: App {
     @StateObject private var taskViewModel: TaskListViewModel
     @StateObject private var audioViewModel: AudioPlayerViewModel
     @StateObject private var displaySettings: AppDisplaySettings
+    @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
 
     init() {
         Self.configureUITestingEnvironmentIfNeeded()
@@ -33,17 +34,40 @@ struct TimeTaskerApp: App {
                 .environmentObject(taskViewModel)
                 .environmentObject(audioViewModel)
                 .environmentObject(displaySettings)
-                .frame(minWidth: 500, minHeight: 700)
+                .tint(Color(red: 0.22, green: 0.56, blue: 0.98))
+                .frame(minWidth: 680, minHeight: 560)
         }
         .defaultSize(width: 1180, height: 860)
-        .windowResizability(.contentMinSize)
+        .windowResizability(.automatic)
         .commands {
             // Task commands
-            CommandGroup(after: .newItem) {
+            CommandGroup(replacing: .newItem) {
                 Button("New Task") {
-                    NotificationCenter.default.post(name: .newTaskShortcut, object: nil)
+                    presentTaskCreationWindow()
                 }
                 .keyboardShortcut("n", modifiers: [.command])
+            }
+
+            CommandMenu("Navigate") {
+                Button("Today") {
+                    openDashboardSection(.today)
+                }
+                .keyboardShortcut("1", modifiers: [.command])
+
+                Button("Calendar") {
+                    openDashboardSection(.calendar)
+                }
+                .keyboardShortcut("2", modifiers: [.command])
+
+                Button("History") {
+                    openDashboardSection(.history)
+                }
+                .keyboardShortcut("3", modifiers: [.command])
+
+                Button("Analytics") {
+                    openDashboardSection(.analytics)
+                }
+                .keyboardShortcut("4", modifiers: [.command])
             }
             
             // Music playback commands
@@ -80,7 +104,7 @@ struct TimeTaskerApp: App {
                 Button("Increase Interface Size") {
                     displaySettings.increaseScale()
                 }
-                .keyboardShortcut("=", modifiers: [.command])
+                .keyboardShortcut("+", modifiers: [.command])
 
                 Button("Decrease Interface Size") {
                     displaySettings.decreaseScale()
@@ -93,10 +117,11 @@ struct TimeTaskerApp: App {
                 .keyboardShortcut("0", modifiers: [.command])
             }
         }
-        
+
         // Menu Bar Extra - shows timer status in menu bar
-        MenuBarExtra {
+        MenuBarExtra(isInserted: $showMenuBarIcon) {
             MenuBarView(taskViewModel: taskViewModel, audioViewModel: audioViewModel)
+                .environmentObject(displaySettings)
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: taskViewModel.activeTask != nil ? "clock.badge.checkmark.fill" : "clock")
@@ -112,6 +137,33 @@ struct TimeTaskerApp: App {
         Settings {
             SettingsView()
                 .environmentObject(displaySettings)
+        }
+    }
+
+    private func presentTaskCreationWindow() {
+        bringPrimaryWindowToFront()
+        NotificationCenter.default.post(name: .newTaskShortcut, object: nil)
+    }
+
+    private func openDashboardSection(_ destination: DashboardDestination) {
+        bringPrimaryWindowToFront()
+        NotificationCenter.default.post(
+            name: .openDashboardSection,
+            object: nil,
+            userInfo: ["section": destination.rawValue]
+        )
+    }
+
+    private func bringPrimaryWindowToFront() {
+        NSApp.activate(ignoringOtherApps: true)
+
+        if let window = NSApp.windows.first(where: { $0.title.contains("Time Tasker") && $0.canBecomeMain }) {
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        if let fallback = NSApp.windows.first(where: { $0.canBecomeMain }) {
+            fallback.makeKeyAndOrderFront(nil)
         }
     }
 
@@ -136,6 +188,13 @@ struct TimeTaskerApp: App {
     }
 }
 
+private enum DashboardDestination: String {
+    case today = "Today"
+    case calendar = "Calendar"
+    case history = "History"
+    case analytics = "Analytics"
+}
+
 extension Notification.Name {
     static let newTaskShortcut = Notification.Name("newTaskShortcut")
     static let musicPlayPause = Notification.Name("musicPlayPause")
@@ -143,6 +202,7 @@ extension Notification.Name {
     static let musicPrevious = Notification.Name("musicPrevious")
     static let musicForward = Notification.Name("musicForward")
     static let musicRewind = Notification.Name("musicRewind")
+    static let openDashboardSection = Notification.Name("openDashboardSection")
 }
 
 final class AppDisplaySettings: ObservableObject {
@@ -168,8 +228,11 @@ final class AppDisplaySettings: ObservableObject {
     func setScale(_ newScale: CGFloat) {
         let clamped = Self.clamp(newScale)
         guard abs(clamped - interfaceScale) > 0.0001 else { return }
+
+        let previousScale = interfaceScale
         interfaceScale = clamped
         UserDefaults.standard.set(Double(clamped), forKey: Keys.interfaceScale)
+        resizePrimaryWindows(from: previousScale, to: clamped)
     }
 
     func increaseScale() {
@@ -182,6 +245,45 @@ final class AppDisplaySettings: ObservableObject {
 
     func resetScale() {
         setScale(1.0)
+    }
+
+    private func resizePrimaryWindows(from oldScale: CGFloat, to newScale: CGFloat) {
+        guard oldScale > 0 else { return }
+
+        let ratio = newScale / oldScale
+        let minWidth: CGFloat = 680
+        let minHeight: CGFloat = 560
+
+        for window in NSApp.windows where window.canBecomeMain && window.level == .normal {
+            let currentFrame = window.frame
+            let visibleFrame = window.screen?.visibleFrame ?? currentFrame
+
+            let targetWidth = min(
+                visibleFrame.width,
+                max(minWidth, currentFrame.width * ratio)
+            )
+
+            let targetHeight = min(
+                visibleFrame.height,
+                max(minHeight, currentFrame.height * ratio)
+            )
+
+            let originX = currentFrame.midX - (targetWidth / 2)
+            let originY = currentFrame.midY - (targetHeight / 2)
+
+            var targetFrame = NSRect(x: originX, y: originY, width: targetWidth, height: targetHeight)
+            targetFrame = targetFrame.intersection(visibleFrame)
+
+            // Ensure we keep minimum usable size when clamped by visibleFrame intersection.
+            if targetFrame.width < minWidth {
+                targetFrame.size.width = min(minWidth, visibleFrame.width)
+            }
+            if targetFrame.height < minHeight {
+                targetFrame.size.height = min(minHeight, visibleFrame.height)
+            }
+
+            window.setFrame(targetFrame, display: true, animate: true)
+        }
     }
 
     private static func clamp(_ value: CGFloat) -> CGFloat {

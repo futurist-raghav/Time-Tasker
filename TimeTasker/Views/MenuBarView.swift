@@ -5,6 +5,23 @@ import AppKit
 struct MenuBarView: View {
     @ObservedObject var taskViewModel: TaskListViewModel
     @ObservedObject var audioViewModel: AudioPlayerViewModel
+    @EnvironmentObject private var displaySettings: AppDisplaySettings
+    @AppStorage("blockingEnabled") private var blockingEnabled = true
+    @AppStorage("autoAdvanceTask") private var autoAdvanceTask = false
+
+    private var pendingTasks: [Task] {
+        taskViewModel.tasks.filter { !$0.isExpired && !$0.isActive }
+    }
+
+    private var nextSuggestedTask: Task? {
+        pendingTasks.sorted { lhs, rhs in
+            if lhs.priority == rhs.priority {
+                return lhs.deadline < rhs.deadline
+            }
+
+            return priorityRank(lhs.priority) > priorityRank(rhs.priority)
+        }.first
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -31,9 +48,25 @@ struct MenuBarView: View {
                         .font(.system(.title2, design: .monospaced))
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
+
+                    HStack(spacing: 8) {
+                        Button("Complete") {
+                            taskViewModel.completeTask(activeTask)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+
+                        Button("Stop") {
+                            taskViewModel.stopTask()
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Spacer(minLength: 0)
+                    }
                 }
                 .padding(12)
-                .liquidGlassCard(cornerRadius: 10, tint: .green, tintOpacity: 0.14, strokeOpacity: 0.55, shadowOpacity: 0.08)
+                .contentSurface(cornerRadius: 10, tint: .green, emphasis: 0.1, strokeOpacity: 0.9, shadowOpacity: 0.08)
             } else {
                 HStack {
                     Image(systemName: "moon.zzz")
@@ -43,11 +76,11 @@ struct MenuBarView: View {
                     Spacer()
                 }
                 .padding(12)
-                .liquidGlassCard(cornerRadius: 10, tint: .white, tintOpacity: 0.08, strokeOpacity: 0.45, shadowOpacity: 0.08)
+                .contentSurface(cornerRadius: 10, tint: .secondary, emphasis: 0.04, strokeOpacity: 0.7, shadowOpacity: 0.08)
             }
-            
+
             Divider()
-            
+
             // Quick stats
             HStack(spacing: 16) {
                 VStack {
@@ -75,12 +108,101 @@ struct MenuBarView: View {
                 }
             }
             .padding(12)
-            .liquidGlassCard(cornerRadius: 10, tint: .blue, tintOpacity: 0.1, strokeOpacity: 0.5, shadowOpacity: 0.08)
-            
+            .contentSurface(cornerRadius: 10, tint: .blue, emphasis: 0.08, strokeOpacity: 0.85, shadowOpacity: 0.08)
+
             Divider()
-            
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Quick Actions")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 8) {
+                    Button(action: openTaskComposer) {
+                        Label("New", systemImage: "plus")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+
+                    Button(action: startNextSuggestedTask) {
+                        Label("Start Next", systemImage: "play.fill")
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(nextSuggestedTask == nil)
+
+                    Spacer(minLength: 0)
+                }
+
+                Toggle("Blocking Enabled", isOn: $blockingEnabled)
+                    .toggleStyle(.switch)
+
+                Toggle("Auto-advance", isOn: $autoAdvanceTask)
+                    .toggleStyle(.switch)
+            }
+            .padding(12)
+            .contentSurface(cornerRadius: 10, tint: .mint, emphasis: 0.08, strokeOpacity: 0.85, shadowOpacity: 0.08)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Navigate")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 8) {
+                    navButton(title: "Today", icon: "checklist", section: "Today")
+                    navButton(title: "Calendar", icon: "calendar", section: "Calendar")
+                }
+
+                HStack(spacing: 8) {
+                    navButton(title: "History", icon: "clock.arrow.circlepath", section: "History")
+                    navButton(title: "Analytics", icon: "chart.bar", section: "Analytics")
+                }
+            }
+            .padding(12)
+            .contentSurface(cornerRadius: 10, tint: .indigo, emphasis: 0.08, strokeOpacity: 0.85, shadowOpacity: 0.08)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Interface")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 8) {
+                    Button("A-") {
+                        displaySettings.decreaseScale()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button("Reset") {
+                        displaySettings.resetScale()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Button("A+") {
+                        displaySettings.increaseScale()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+
+                    Spacer(minLength: 0)
+
+                    Text("\(displaySettings.scalePercentage)%")
+                        .font(.caption.monospacedDigit())
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(12)
+            .contentSurface(cornerRadius: 10, tint: .orange, emphasis: 0.08, strokeOpacity: 0.85, shadowOpacity: 0.08)
+
             // Music controls (compact)
             if !audioViewModel.playlist.isEmpty {
+                Divider()
+
                 HStack(spacing: 12) {
                     Button(action: audioViewModel.previousSong) {
                         Image(systemName: "backward.fill")
@@ -106,15 +228,23 @@ struct MenuBarView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .liquidGlassCard(cornerRadius: 8, tint: .indigo, tintOpacity: 0.1, strokeOpacity: 0.45, shadowOpacity: 0.08)
-                
-                Divider()
+                .contentSurface(cornerRadius: 8, tint: .indigo, emphasis: 0.08, strokeOpacity: 0.8, shadowOpacity: 0.08)
             }
-            
+
+            Divider()
+
             // Actions
             VStack(spacing: 0) {
                 Button(action: { openMainWindow() }) {
                     Label("Open Time Tasker", systemImage: "macwindow")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+
+                Button(action: { hideMainWindow() }) {
+                    Label("Hide Main Window", systemImage: "eye.slash")
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
@@ -131,13 +261,71 @@ struct MenuBarView: View {
                 .padding(.vertical, 8)
             }
         }
-        .frame(width: 260)
+        .frame(width: 300)
     }
-    
+
+    @ViewBuilder
+    private func navButton(title: String, icon: String, section: String) -> some View {
+        Button(action: {
+            openSection(section)
+        }) {
+            Label(title, systemImage: icon)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(1)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+    }
+
+    private func startNextSuggestedTask() {
+        guard let task = nextSuggestedTask else { return }
+        taskViewModel.startTask(task)
+    }
+
+    private func openTaskComposer() {
+        openMainWindow()
+        NotificationCenter.default.post(name: .newTaskShortcut, object: nil)
+    }
+
+    private func openSection(_ section: String) {
+        openMainWindow()
+        NotificationCenter.default.post(
+            name: .openDashboardSection,
+            object: nil,
+            userInfo: ["section": section]
+        )
+    }
+
     private func openMainWindow() {
         NSApp.activate(ignoringOtherApps: true)
-        if let window = NSApp.windows.first(where: { $0.title.contains("Time") || $0.isVisible }) {
+
+        if let window = NSApp.windows.first(where: { $0.title.contains("Time Tasker") && $0.canBecomeMain }) {
             window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        if let window = NSApp.windows.first(where: { $0.canBecomeMain && $0.level == .normal }) {
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+
+    private func hideMainWindow() {
+        if let window = NSApp.windows.first(where: { $0.title.contains("Time Tasker") && $0.canBecomeMain }) {
+            window.orderOut(nil)
+            return
+        }
+
+        if let fallback = NSApp.windows.first(where: { $0.canBecomeMain && $0.level == .normal }) {
+            fallback.orderOut(nil)
+        }
+    }
+
+    private func priorityRank(_ priority: TaskPriority) -> Int {
+        switch priority {
+        case .urgent: return 4
+        case .high: return 3
+        case .medium: return 2
+        case .low: return 1
         }
     }
 }
@@ -150,6 +338,7 @@ struct SettingsView: View {
     @AppStorage("autoAdvanceTask") private var autoAdvanceTask = false
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("appearanceMode") private var appearanceMode = 0 // 0 = System, 1 = Light, 2 = Dark
+    @State private var showAdvancedPlatformDetails = false
     @EnvironmentObject private var displaySettings: AppDisplaySettings
     private let platform = PlatformReadinessService.shared
     
@@ -215,7 +404,7 @@ struct SettingsView: View {
 
                         Spacer()
 
-                        Text("Shortcuts: Cmd + / Cmd -")
+                        Text("Shortcuts: Cmd +, Cmd -, Cmd 0")
                             .font(.caption2)
                             .foregroundColor(.secondary)
                     }
@@ -223,40 +412,42 @@ struct SettingsView: View {
                 }
             }
 
-            Section("Platform Readiness") {
+            Section("Build Info") {
                 HStack {
-                    Text("Architecture")
+                    Text("Version")
                     Spacer()
-                    Text(platform.architectureLabel)
-                        .foregroundColor(.secondary)
-                }
-
-                HStack {
-                    Text("Runtime")
-                    Spacer()
-                    Text(platform.runtimeLabel)
+                    Text(platform.displayVersionLabel)
                         .foregroundColor(.secondary)
                 }
 
                 HStack {
                     Text("Operating System")
                     Spacer()
-                    Text(platform.osLabel)
+                    Text(platform.displayOSLabel)
                         .foregroundColor(.secondary)
                 }
 
-                HStack {
-                    Text("Support Window")
-                    Spacer()
-                    Text(platform.supportLabel)
-                        .foregroundColor(.secondary)
-                }
+                DisclosureGroup("Advanced Runtime Details", isExpanded: $showAdvancedPlatformDetails) {
+                    HStack {
+                        Text("Architecture")
+                        Spacer()
+                        Text(platform.architectureLabel)
+                            .foregroundColor(.secondary)
+                    }
 
-                HStack {
-                    Text("App Version")
-                    Spacer()
-                    Text(platform.appVersionLabel)
-                        .foregroundColor(.secondary)
+                    HStack {
+                        Text("Runtime")
+                        Spacer()
+                        Text(platform.runtimeLabel)
+                            .foregroundColor(.secondary)
+                    }
+
+                    HStack {
+                        Text("Support Window")
+                        Spacer()
+                        Text(platform.supportLabel)
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 if platform.isRosettaTranslated {
@@ -264,10 +455,6 @@ struct SettingsView: View {
                         .font(.caption2)
                         .foregroundColor(.orange)
                 }
-
-                Text("Xcode 26 baseline with Tahoe unified design is enabled for this app target.")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
             }
         }
         .formStyle(.grouped)
