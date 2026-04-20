@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import AppKit
 
 private enum DashboardSection: String, CaseIterable, Identifiable {
     case today = "Today"
@@ -46,6 +47,7 @@ private enum DashboardSection: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @EnvironmentObject var taskViewModel: TaskListViewModel
     @EnvironmentObject var audioViewModel: AudioPlayerViewModel
+    @EnvironmentObject var displaySettings: AppDisplaySettings
     @StateObject private var blockerViewModel = AppBlockerViewModel()
 
     @State private var showTaskCreation = false
@@ -53,6 +55,7 @@ struct ContentView: View {
     @State private var searchQuery = ""
     @State private var selectedTaskID: Task.ID?
     @State private var splitVisibility: NavigationSplitViewVisibility = .all
+    private let widgetCommandBridge = WidgetCommandBridge.shared
 
     private var filteredTasks: [Task] {
         let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -78,17 +81,20 @@ struct ContentView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let logicalWidth = max(proxy.size.width, 1)
-            let logicalHeight = max(proxy.size.height, 1)
+            let scale = max(0.5, displaySettings.interfaceScale)
+            let unscaledWidth = max(proxy.size.width / scale, 1)
+            let unscaledHeight = max(proxy.size.height / scale, 1)
 
-            navigationShell(logicalWidth: logicalWidth)
-                .frame(width: logicalWidth, height: logicalHeight, alignment: .topLeading)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            navigationShell(logicalWidth: unscaledWidth)
+                .frame(width: unscaledWidth, height: unscaledHeight, alignment: .topLeading)
+                .scaleEffect(scale, anchor: .topLeading)
+                .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
                 .onAppear {
                     updateSelection(with: taskViewModel.tasks)
-                    updateSplitVisibility(for: logicalWidth)
+                    updateSplitVisibility(for: unscaledWidth)
+                    handlePendingWidgetCommand()
                 }
-                .onChange(of: logicalWidth) { _, newWidth in
+                .onChange(of: unscaledWidth) { _, newWidth in
                     updateSplitVisibility(for: newWidth)
                 }
         }
@@ -148,6 +154,7 @@ struct ContentView: View {
         .sheet(isPresented: $showTaskCreation) {
             TaskCreationView(viewModel: taskViewModel)
                 .frame(minWidth: 620, minHeight: 700)
+                .interfaceScaled()
         }
         .onReceive(NotificationCenter.default.publisher(for: .newTaskShortcut)) { _ in
             showTaskCreation = true
@@ -164,6 +171,9 @@ struct ContentView: View {
         }
         .onReceive(taskViewModel.$tasks) { tasks in
             updateSelection(with: tasks)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            handlePendingWidgetCommand()
         }
     }
 
@@ -342,6 +352,38 @@ struct ContentView: View {
 
         if self.selectedTaskID == nil {
             self.selectedTaskID = taskViewModel.activeTask?.id ?? filteredTasks.first?.id
+        }
+    }
+
+    private func handlePendingWidgetCommand() {
+        guard let command = widgetCommandBridge.consumePendingCommand() else {
+            return
+        }
+
+        switch command.action {
+        case .openToday:
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedSection = .today
+            }
+        case .openTask:
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedSection = .today
+            }
+
+            if let taskID = command.taskID,
+               let uuid = UUID(uuidString: taskID),
+               taskViewModel.tasks.contains(where: { $0.id == uuid }) {
+                selectedTaskID = uuid
+            }
+        case .openFocus:
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedSection = .today
+            }
+        case .openQuickAdd:
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedSection = .today
+            }
+            showTaskCreation = true
         }
     }
 }
@@ -801,3 +843,4 @@ struct ActiveTaskView: View {
         .environmentObject(AudioPlayerViewModel())
         .environmentObject(AppDisplaySettings())
 }
+

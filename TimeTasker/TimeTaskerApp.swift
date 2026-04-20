@@ -10,7 +10,7 @@ import AppKit
 import Combine
 
 #if arch(x86_64)
-#error("Time Tasker 4.2 and later support Apple Silicon (arm64) only.")
+#error("Time Tasker 4.3 and later support Apple Silicon (arm64) only.")
 #endif
 
 @main
@@ -172,19 +172,7 @@ struct TimeTaskerApp: App {
             return
         }
 
-        let defaults = UserDefaults.standard
-        let keysToClear = [
-            "SavedTasksArray",
-            "taskHistory",
-            "lastAnalyticsDate",
-            "totalFocusTimeToday",
-            "tasksCompletedToday",
-            "currentStreak"
-        ]
-
-        for key in keysToClear {
-            defaults.removeObject(forKey: key)
-        }
+        DataPersistenceService.resetPersistentDataForUITesting()
     }
 }
 
@@ -229,10 +217,8 @@ final class AppDisplaySettings: ObservableObject {
         let clamped = Self.clamp(newScale)
         guard abs(clamped - interfaceScale) > 0.0001 else { return }
 
-        let previousScale = interfaceScale
         interfaceScale = clamped
         UserDefaults.standard.set(Double(clamped), forKey: Keys.interfaceScale)
-        resizePrimaryWindows(from: previousScale, to: clamped)
     }
 
     func increaseScale() {
@@ -245,45 +231,6 @@ final class AppDisplaySettings: ObservableObject {
 
     func resetScale() {
         setScale(1.0)
-    }
-
-    private func resizePrimaryWindows(from oldScale: CGFloat, to newScale: CGFloat) {
-        guard oldScale > 0 else { return }
-
-        let ratio = newScale / oldScale
-        let minWidth: CGFloat = 680
-        let minHeight: CGFloat = 560
-
-        for window in NSApp.windows where window.canBecomeMain && window.level == .normal {
-            let currentFrame = window.frame
-            let visibleFrame = window.screen?.visibleFrame ?? currentFrame
-
-            let targetWidth = min(
-                visibleFrame.width,
-                max(minWidth, currentFrame.width * ratio)
-            )
-
-            let targetHeight = min(
-                visibleFrame.height,
-                max(minHeight, currentFrame.height * ratio)
-            )
-
-            let originX = currentFrame.midX - (targetWidth / 2)
-            let originY = currentFrame.midY - (targetHeight / 2)
-
-            var targetFrame = NSRect(x: originX, y: originY, width: targetWidth, height: targetHeight)
-            targetFrame = targetFrame.intersection(visibleFrame)
-
-            // Ensure we keep minimum usable size when clamped by visibleFrame intersection.
-            if targetFrame.width < minWidth {
-                targetFrame.size.width = min(minWidth, visibleFrame.width)
-            }
-            if targetFrame.height < minHeight {
-                targetFrame.size.height = min(minHeight, visibleFrame.height)
-            }
-
-            window.setFrame(targetFrame, display: true, animate: true)
-        }
     }
 
     private static func clamp(_ value: CGFloat) -> CGFloat {

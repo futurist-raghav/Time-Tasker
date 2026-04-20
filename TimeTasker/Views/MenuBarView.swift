@@ -459,6 +459,7 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 430, height: 530)
+        .interfaceScaled()
         .navigationTitle("Settings")
         .onAppear {
             applyAppearance(appearanceMode)
@@ -534,3 +535,4 @@ struct CompletedTasksView: View {
         .navigationTitle("Completed Tasks")
     }
 }
+

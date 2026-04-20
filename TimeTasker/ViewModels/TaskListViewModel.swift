@@ -276,44 +276,47 @@ class TaskListViewModel: ObservableObject {
 
     private func saveTasks() {
         dataService.saveTasks(tasks)
+        WidgetReloadService.reloadTaskAndFocusWidgets()
     }
     
     private func loadHistory() {
-        if let data = UserDefaults.standard.data(forKey: "taskHistory"),
-           let history = try? JSONDecoder().decode([CompletedTask].self, from: data) {
-            taskHistory = history
-        }
+        taskHistory = dataService.loadTaskHistory()
     }
     
     private func saveHistory() {
-        if let data = try? JSONEncoder().encode(taskHistory) {
-            UserDefaults.standard.set(data, forKey: "taskHistory")
-        }
+        dataService.saveTaskHistory(taskHistory)
+        WidgetReloadService.reloadStatsWidget()
     }
     
     private func loadAnalytics() {
         let calendar = Calendar.current
         let today = Date()
+        let analytics = dataService.loadDailyAnalyticsState()
         
-        // Reset daily stats if it's a new day
-        if let lastDate = UserDefaults.standard.object(forKey: "lastAnalyticsDate") as? Date,
+        // Reset daily stats if it's a new day.
+        if let lastDate = analytics.lastAnalyticsDate,
            !calendar.isDate(lastDate, inSameDayAs: today) {
             totalFocusTimeToday = 0
             tasksCompletedToday = 0
         } else {
-            totalFocusTimeToday = UserDefaults.standard.double(forKey: "totalFocusTimeToday")
-            tasksCompletedToday = UserDefaults.standard.integer(forKey: "tasksCompletedToday")
+            totalFocusTimeToday = analytics.totalFocusTimeToday
+            tasksCompletedToday = analytics.tasksCompletedToday
         }
         
-        currentStreak = UserDefaults.standard.integer(forKey: "currentStreak")
+        currentStreak = analytics.currentStreak
         updateStreak()
     }
     
     private func saveAnalytics() {
-        UserDefaults.standard.set(Date(), forKey: "lastAnalyticsDate")
-        UserDefaults.standard.set(totalFocusTimeToday, forKey: "totalFocusTimeToday")
-        UserDefaults.standard.set(tasksCompletedToday, forKey: "tasksCompletedToday")
-        UserDefaults.standard.set(currentStreak, forKey: "currentStreak")
+        let analytics = DailyAnalyticsState(
+            lastAnalyticsDate: Date(),
+            totalFocusTimeToday: totalFocusTimeToday,
+            tasksCompletedToday: tasksCompletedToday,
+            currentStreak: currentStreak
+        )
+
+        dataService.saveDailyAnalyticsState(analytics)
+        WidgetReloadService.reloadStatsWidget()
     }
 
     deinit {

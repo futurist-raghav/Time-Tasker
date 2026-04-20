@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		A04688502F96247E00381FB4 /* InterfaceScaleModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = A046884F2F96247E00381FB4 /* InterfaceScaleModifier.swift */; };
+		B10A00022EEA000100124F80 /* TimeTaskerWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = B10A00042EEA000100124F80 /* TimeTaskerWidgets.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		A061D30A2EE1557F00124F80 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -21,12 +26,35 @@
 			remoteGlobalIDString = A061D2F92EE1557B00124F80;
 			remoteInfo = TimeTasker;
 		};
+		B10A00012EEA000100124F80 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A061D2F22EE1557B00124F80 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B10A00062EEA000100124F80;
+			remoteInfo = TimeTaskerWidgets;
+		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		B10A00032EEA000100124F80 /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B10A00022EEA000100124F80 /* TimeTaskerWidgets.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		A046884F2F96247E00381FB4 /* InterfaceScaleModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterfaceScaleModifier.swift; sourceTree = "<group>"; };
 		A061D2FA2EE1557B00124F80 /* TimeTasker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TimeTasker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A061D3092EE1557F00124F80 /* TimeTaskerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TimeTaskerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A061D3132EE1557F00124F80 /* TimeTaskerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TimeTaskerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10A00042EEA000100124F80 /* TimeTaskerWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TimeTaskerWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -43,6 +71,11 @@
 		A061D3162EE1557F00124F80 /* TimeTaskerUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = TimeTaskerUITests;
+			sourceTree = "<group>";
+		};
+		B10A00052EEA000100124F80 /* TimeTaskerWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TimeTaskerWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -69,6 +102,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B10A00072EEA000100124F80 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -76,9 +116,11 @@
 			isa = PBXGroup;
 			children = (
 				A061D2FC2EE1557B00124F80 /* TimeTasker */,
+				B10A00052EEA000100124F80 /* TimeTaskerWidgets */,
 				A061D30C2EE1557F00124F80 /* TimeTaskerTests */,
 				A061D3162EE1557F00124F80 /* TimeTaskerUITests */,
 				A061D2FB2EE1557B00124F80 /* Products */,
+				A046884F2F96247E00381FB4 /* InterfaceScaleModifier.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -86,6 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				A061D2FA2EE1557B00124F80 /* TimeTasker.app */,
+				B10A00042EEA000100124F80 /* TimeTaskerWidgets.appex */,
 				A061D3092EE1557F00124F80 /* TimeTaskerTests.xctest */,
 				A061D3132EE1557F00124F80 /* TimeTaskerUITests.xctest */,
 			);
@@ -102,10 +145,12 @@
 				A061D2F62EE1557B00124F80 /* Sources */,
 				A061D2F72EE1557B00124F80 /* Frameworks */,
 				A061D2F82EE1557B00124F80 /* Resources */,
+				B10A00032EEA000100124F80 /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				B10A000A2EEA000100124F80 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				A061D2FC2EE1557B00124F80 /* TimeTasker */,
@@ -163,6 +208,28 @@
 			productReference = A061D3132EE1557F00124F80 /* TimeTaskerUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		B10A00062EEA000100124F80 /* TimeTaskerWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B10A000D2EEA000100124F80 /* Build configuration list for PBXNativeTarget "TimeTaskerWidgets" */;
+			buildPhases = (
+				B10A00092EEA000100124F80 /* Sources */,
+				B10A00072EEA000100124F80 /* Frameworks */,
+				B10A00082EEA000100124F80 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B10A00052EEA000100124F80 /* TimeTaskerWidgets */,
+			);
+			name = TimeTaskerWidgets;
+			packageProductDependencies = (
+			);
+			productName = TimeTaskerWidgets;
+			productReference = B10A00042EEA000100124F80 /* TimeTaskerWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -184,6 +251,9 @@
 						CreatedOnToolsVersion = 26.1.1;
 						TestTargetID = A061D2F92EE1557B00124F80;
 					};
+					B10A00062EEA000100124F80 = {
+						CreatedOnToolsVersion = 26.1.1;
+					};
 				};
 			};
 			buildConfigurationList = A061D2F52EE1557B00124F80 /* Build configuration list for PBXProject "TimeTasker" */;
@@ -201,6 +271,7 @@
 			projectRoot = "";
 			targets = (
 				A061D2F92EE1557B00124F80 /* TimeTasker */,
+				B10A00062EEA000100124F80 /* TimeTaskerWidgets */,
 				A061D3082EE1557F00124F80 /* TimeTaskerTests */,
 				A061D3122EE1557F00124F80 /* TimeTaskerUITests */,
 			);
@@ -229,6 +300,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B10A00082EEA000100124F80 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -236,6 +314,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A04688502F96247E00381FB4 /* InterfaceScaleModifier.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -247,6 +326,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		A061D30F2EE1557F00124F80 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B10A00092EEA000100124F80 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -265,6 +351,11 @@
 			isa = PBXTargetDependency;
 			target = A061D2F92EE1557B00124F80 /* TimeTasker */;
 			targetProxy = A061D3142EE1557F00124F80 /* PBXContainerItemProxy */;
+		};
+		B10A000A2EEA000100124F80 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B10A00062EEA000100124F80 /* TimeTaskerWidgets */;
+			targetProxy = B10A00012EEA000100124F80 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -404,7 +495,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 383;
+				CURRENT_PROJECT_VERSION = 384;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -421,7 +512,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 4.2;
+				MARKETING_VERSION = 4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raghavagarwal.TimeTasker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -445,7 +536,7 @@
 				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 383;
+				CURRENT_PROJECT_VERSION = 384;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
@@ -462,7 +553,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 4.2;
+				MARKETING_VERSION = 4.3;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raghavagarwal.TimeTasker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -570,6 +661,64 @@
 			};
 			name = Release;
 		};
+		B10A000B2EEA000100124F80 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ARCHS = arm64;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "TimeTasker Widgets";
+				INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
+				INFOPLIST_KEY_NSExtension_NSExtensionPrincipalClass = "$(PRODUCT_MODULE_NAME).TimeTaskerWidgetsBundle";
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.raghavagarwal.TimeTasker.TimeTaskerWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B10A000C2EEA000100124F80 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ARCHS = arm64;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = "TimeTasker Widgets";
+				INFOPLIST_KEY_NSExtension_NSExtensionPointIdentifier = "com.apple.widgetkit-extension";
+				INFOPLIST_KEY_NSExtension_NSExtensionPrincipalClass = "$(PRODUCT_MODULE_NAME).TimeTaskerWidgetsBundle";
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.raghavagarwal.TimeTasker.TimeTaskerWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -605,6 +754,15 @@
 			buildConfigurations = (
 				A061D3242EE1557F00124F80 /* Debug */,
 				A061D3252EE1557F00124F80 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B10A000D2EEA000100124F80 /* Build configuration list for PBXNativeTarget "TimeTaskerWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B10A000B2EEA000100124F80 /* Debug */,
+				B10A000C2EEA000100124F80 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
