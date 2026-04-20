@@ -8,28 +8,25 @@
 import SwiftUI
 import AppKit
 
+#if arch(x86_64)
+#error("Time Tasker 4.1 and later support Apple Silicon (arm64) only.")
+#endif
+
 @main
 struct TimeTaskerApp: App {
     // Shared ViewModels for app-wide access
     @StateObject private var taskViewModel = TaskListViewModel()
     @StateObject private var audioViewModel = AudioPlayerViewModel()
     
-    init() {
-        // Disable Metal validation and force compatible rendering for OCLP systems
-        setenv("MTL_HUD_ENABLED", "0", 1)
-        setenv("MTL_DEBUG_LAYER", "0", 1)
-        
-        // Disable Core Animation's use of Metal where possible
-        UserDefaults.standard.set(false, forKey: "NSViewAllowsRootLayerBacking")
-    }
-    
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("Time Tasker") {
             ContentView()
                 .environmentObject(taskViewModel)
                 .environmentObject(audioViewModel)
                 .frame(minWidth: 500, minHeight: 700)
         }
+        .defaultSize(width: 1180, height: 860)
+        .windowResizability(.contentMinSize)
         .commands {
             // Task commands
             CommandGroup(after: .newItem) {

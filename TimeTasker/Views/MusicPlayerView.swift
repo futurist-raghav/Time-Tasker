@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 import AppKit
 
 struct MusicPlayerView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var viewModel: AudioPlayerViewModel
     @State private var showFilePicker = false
     @State private var showPlaylist = false
@@ -25,28 +26,24 @@ struct MusicPlayerView: View {
                         .foregroundColor(.secondary)
                 }
 
-                Button(action: { showFilePicker = true }) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title3)
+                PlayerIconButton(systemImage: "plus", tint: .accentColor) {
+                    showFilePicker = true
                 }
-                .buttonStyle(.plain)
                 .help("Add music files")
                 
                 if !viewModel.playlist.isEmpty {
                     // Autoplay toggle
-                    Button(action: { viewModel.isAutoplayEnabled.toggle() }) {
-                        Image(systemName: viewModel.isAutoplayEnabled ? "repeat.circle.fill" : "repeat.circle")
-                            .font(.title3)
-                            .foregroundColor(viewModel.isAutoplayEnabled ? .accentColor : .secondary)
+                    PlayerIconButton(
+                        systemImage: "repeat",
+                        tint: viewModel.isAutoplayEnabled ? .accentColor : .secondary
+                    ) {
+                        viewModel.isAutoplayEnabled.toggle()
                     }
-                    .buttonStyle(.plain)
                     .help(viewModel.isAutoplayEnabled ? "Autoplay On" : "Autoplay Off")
                     
-                    Button(action: { showPlaylist.toggle() }) {
-                        Image(systemName: showPlaylist ? "list.bullet.circle.fill" : "list.bullet.circle")
-                            .font(.title3)
+                    PlayerIconButton(systemImage: "list.bullet", tint: showPlaylist ? .accentColor : .secondary) {
+                        showPlaylist.toggle()
                     }
-                    .buttonStyle(.plain)
                     .help("Show playlist")
                 }
             }
@@ -55,19 +52,30 @@ struct MusicPlayerView: View {
 
             if viewModel.playlist.isEmpty {
                 // Empty state
-                VStack(spacing: 8) {
-                    Image(systemName: "music.note")
-                        .font(.largeTitle)
-                        .foregroundColor(.secondary)
+                VStack(spacing: 10) {
+                    Image(systemName: "music.note.house.fill")
+                        .font(.system(size: 32, weight: .medium))
+                        .foregroundColor(.secondary.opacity(0.8))
+
                     Text("No music added")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+
+                    Text("Load local focus tracks to stay inside one workspace")
+                        .font(.caption)
+                        .foregroundColor(.secondary.opacity(0.75))
+
                     Button("Add Music Files") {
                         showFilePicker = true
                     }
                     .buttonStyle(.bordered)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 150)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(colorScheme == .dark ? Color.white.opacity(0.03) : Color.black.opacity(0.03))
+                )
             } else {
                 // Song info
                 HStack {
@@ -103,8 +111,7 @@ struct MusicPlayerView: View {
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color.secondary.opacity(0.1))
-                        .cornerRadius(4)
+                        .liquidGlassCard(cornerRadius: 6, tint: .white, tintOpacity: 0.08, strokeOpacity: 0.45, shadowOpacity: 0.08)
                 }
                 .padding(.horizontal)
 
@@ -153,19 +160,11 @@ struct MusicPlayerView: View {
                 // Playback controls
                 HStack(spacing: 16) {
                     // Previous
-                    Button(action: viewModel.previousSong) {
-                        Image(systemName: "backward.fill")
-                            .font(.title3)
-                    }
-                    .buttonStyle(.plain)
+                    PlayerIconButton(systemImage: "backward.fill", tint: .primary, action: viewModel.previousSong)
                     .help("Previous (⌘P)")
 
                     // Rewind 5s
-                    Button(action: viewModel.rewind5Seconds) {
-                        Image(systemName: "gobackward.5")
-                            .font(.title3)
-                    }
-                    .buttonStyle(.plain)
+                    PlayerIconButton(systemImage: "gobackward.5", tint: .primary, action: viewModel.rewind5Seconds)
                     .help("Rewind 5 seconds (⌘←)")
 
                     // Play/Pause
@@ -178,26 +177,16 @@ struct MusicPlayerView: View {
                     .help("Play/Pause (Space)")
 
                     // Forward 5s
-                    Button(action: viewModel.forward5Seconds) {
-                        Image(systemName: "goforward.5")
-                            .font(.title3)
-                    }
-                    .buttonStyle(.plain)
+                    PlayerIconButton(systemImage: "goforward.5", tint: .primary, action: viewModel.forward5Seconds)
                     .help("Forward 5 seconds (⌘→)")
 
                     // Next
-                    Button(action: viewModel.nextSong) {
-                        Image(systemName: "forward.fill")
-                            .font(.title3)
-                    }
-                    .buttonStyle(.plain)
+                    PlayerIconButton(systemImage: "forward.fill", tint: .primary, action: viewModel.nextSong)
                     .help("Next (⌘N)")
                 }
                 .padding(.bottom, 8)
             }
         }
-        .background(Color(NSColor.controlBackgroundColor))
-        .cornerRadius(8)
         .fileImporter(
             isPresented: $showFilePicker,
             allowedContentTypes: [.audio, .mp3, .wav, .aiff],
@@ -214,6 +203,30 @@ struct MusicPlayerView: View {
             PlaylistView(viewModel: viewModel)
                 .frame(width: 300, height: 400)
         }
+    }
+}
+
+struct PlayerIconButton: View {
+    let systemImage: String
+    let tint: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(tint)
+                .frame(width: 26, height: 26)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.08))
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 

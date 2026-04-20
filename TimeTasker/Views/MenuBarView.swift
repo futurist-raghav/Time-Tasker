@@ -33,7 +33,7 @@ struct MenuBarView: View {
                         .foregroundColor(.primary)
                 }
                 .padding(12)
-                .background(Color.green.opacity(0.1))
+                .liquidGlassCard(cornerRadius: 10, tint: .green, tintOpacity: 0.14, strokeOpacity: 0.55, shadowOpacity: 0.08)
             } else {
                 HStack {
                     Image(systemName: "moon.zzz")
@@ -43,6 +43,7 @@ struct MenuBarView: View {
                     Spacer()
                 }
                 .padding(12)
+                .liquidGlassCard(cornerRadius: 10, tint: .white, tintOpacity: 0.08, strokeOpacity: 0.45, shadowOpacity: 0.08)
             }
             
             Divider()
@@ -74,6 +75,7 @@ struct MenuBarView: View {
                 }
             }
             .padding(12)
+            .liquidGlassCard(cornerRadius: 10, tint: .blue, tintOpacity: 0.1, strokeOpacity: 0.5, shadowOpacity: 0.08)
             
             Divider()
             
@@ -104,6 +106,7 @@ struct MenuBarView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
+                .liquidGlassCard(cornerRadius: 8, tint: .indigo, tintOpacity: 0.1, strokeOpacity: 0.45, shadowOpacity: 0.08)
                 
                 Divider()
             }
@@ -143,15 +146,21 @@ struct MenuBarView: View {
 struct SettingsView: View {
     @AppStorage("blockingEnabled") private var blockingEnabled = true
     @AppStorage("soundEnabled") private var soundEnabled = true
+    @AppStorage("enableSystemWideHostsBlocking") private var enableSystemWideHostsBlocking = true
     @AppStorage("autoAdvanceTask") private var autoAdvanceTask = false
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("appearanceMode") private var appearanceMode = 0 // 0 = System, 1 = Light, 2 = Dark
+    private let platform = PlatformReadinessService.shared
     
     var body: some View {
         Form {
             Section("Blocking") {
                 Toggle("Enable App Blocking", isOn: $blockingEnabled)
                 Toggle("Play Sound on Block", isOn: $soundEnabled)
+                Toggle("System-wide website blocking (/etc/hosts)", isOn: $enableSystemWideHostsBlocking)
+                Text("When enabled, the app may ask for admin permission during focus sessions to temporarily enforce blocked domains at system level.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
             }
             
             Section("Tasks") {
@@ -171,9 +180,56 @@ struct SettingsView: View {
                     applyAppearance(newValue)
                 }
             }
+
+            Section("Platform Readiness") {
+                HStack {
+                    Text("Architecture")
+                    Spacer()
+                    Text(platform.architectureLabel)
+                        .foregroundColor(.secondary)
+                }
+
+                HStack {
+                    Text("Runtime")
+                    Spacer()
+                    Text(platform.runtimeLabel)
+                        .foregroundColor(.secondary)
+                }
+
+                HStack {
+                    Text("Operating System")
+                    Spacer()
+                    Text(platform.osLabel)
+                        .foregroundColor(.secondary)
+                }
+
+                HStack {
+                    Text("Support Window")
+                    Spacer()
+                    Text(platform.supportLabel)
+                        .foregroundColor(.secondary)
+                }
+
+                HStack {
+                    Text("App Version")
+                    Spacer()
+                    Text(platform.appVersionLabel)
+                        .foregroundColor(.secondary)
+                }
+
+                if platform.isRosettaTranslated {
+                    Label("Running through Rosetta may reduce process blocking precision.", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption2)
+                        .foregroundColor(.orange)
+                }
+
+                Text("Xcode 26 baseline with Tahoe unified design is enabled for this app target.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 350, height: 350)
+        .frame(width: 420, height: 460)
         .navigationTitle("Settings")
         .onAppear {
             applyAppearance(appearanceMode)

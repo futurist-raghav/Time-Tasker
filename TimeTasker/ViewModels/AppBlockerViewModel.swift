@@ -7,7 +7,9 @@ class AppBlockerViewModel: ObservableObject {
     
     @Published var isMonitoring: Bool = false
     @Published var blockedAppName: String = ""
-    @Published var allowedAppsCount: Int = 0
+    @Published var blockedAppsCount: Int = 0
+    @Published var blockedWebsitesCount: Int = 0
+    @Published var blockedItemsCount: Int = 0
 
     init() {
         setupNotifications()
@@ -25,10 +27,20 @@ class AppBlockerViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .assign(to: &$blockedAppName)
         
-        monitorService.$allowedApps
+        monitorService.$blockedApps
             .receive(on: DispatchQueue.main)
             .map { $0.count }
-            .assign(to: &$allowedAppsCount)
+            .assign(to: &$blockedAppsCount)
+        
+        monitorService.$blockedWebsites
+            .receive(on: DispatchQueue.main)
+            .map { $0.count }
+            .assign(to: &$blockedWebsitesCount)
+        
+        Publishers.CombineLatest(monitorService.$blockedApps, monitorService.$blockedWebsites)
+            .receive(on: DispatchQueue.main)
+            .map { $0.count + $1.count }
+            .assign(to: &$blockedItemsCount)
     }
 
     private func setupNotifications() {
@@ -52,7 +64,9 @@ class AppBlockerViewModel: ObservableObject {
     }
 
     private func startBlocking(for task: Task) {
-        print("🛡️ Starting blocking for task: \(task.title) with \(task.resources.count) allowed apps")
+        let appCount = task.resources.filter { $0.type == .application }.count
+        let websiteCount = task.resources.filter { $0.type == .website }.count
+        print("🛡️ Starting blocking for task: \(task.title) with \(appCount) blocked apps and \(websiteCount) blocked websites")
         monitorService.startMonitoring(with: task.resources)
     }
 

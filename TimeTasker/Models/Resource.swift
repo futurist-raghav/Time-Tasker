@@ -4,6 +4,7 @@ import AppKit
 enum ResourceType: String, Codable {
     case application
     case file
+    case website
 }
 
 struct Resource: Identifiable, Codable, Equatable {

@@ -1,7 +1,7 @@
 # Time Tasker's - Minimum Viable Product Features
 
-**Version**: 4.0  
-**Platform**: macOS  
+**Version**: 4.1  
+**Platform**: macOS (Apple Silicon only, arm64)  
 **Purpose**: Distraction-blocking productivity application for focused work sessions
 
 ---
@@ -120,6 +120,7 @@
 [x] **Minimal Single-Page UI** - All Main features on one screen to minimize distractions
 [x] **Layout**: Think and create best UI/UX accordingly that maximise productivity and ease of use.
 [x] **Dark/Light Mode Support** - Adapts to system appearance settings with manual override option
+[x] **Liquid Glass Visual Theme** - Material-based translucent surfaces and depth-forward cards across primary screens
 [x] **Menu bar + Pop Up page** - For extra non important features like complete task list, settings, About Developer, About app, etc.
 [x] **Calendar View** - Visual deadline calendar for task overview
 [x] **Clean Typography** - Large readable fonts for minimum eye strain

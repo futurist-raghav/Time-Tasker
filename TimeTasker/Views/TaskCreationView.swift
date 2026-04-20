@@ -28,11 +28,20 @@ struct TaskCreationView: View {
     @State private var selectedCategory: Category = .coding
     @State private var deadline = Date().addingTimeInterval(3600)
     @State private var selectedResources: [Resource] = []
+    @State private var websiteInput = ""
     @State private var showAppPicker = false
     @State private var showTemplates = true
     @State private var isPomodoroMode = false
     @State private var priority: TaskPriority = .medium
     @State private var notes = ""
+    
+    private var blockedApps: [Resource] {
+        selectedResources.filter { $0.type == .application }
+    }
+    
+    private var blockedWebsites: [Resource] {
+        selectedResources.filter { $0.type == .website }
+    }
 
     var body: some View {
         NavigationStack {
@@ -114,13 +123,13 @@ struct TaskCreationView: View {
                     }
                 }
 
-                Section("Allowed Apps (\\(selectedResources.count))") {
-                    if selectedResources.isEmpty {
-                        Text("No apps selected")
+                Section("Blocked Apps (\\(blockedApps.count))") {
+                    if blockedApps.isEmpty {
+                        Text("No blocked apps selected")
                             .foregroundColor(.secondary)
                             .italic()
                     } else {
-                        ForEach(selectedResources) { resource in
+                        ForEach(blockedApps) { resource in
                             HStack {
                                 if let icon = getAppIcon(for: resource.path) {
                                     Image(nsImage: icon)
@@ -136,7 +145,7 @@ struct TaskCreationView: View {
                                 Spacer()
 
                                 Button(action: {
-                                    selectedResources.removeAll { $0.id == resource.id }
+                                    removeResource(resource)
                                 }) {
                                     Image(systemName: "xmark.circle.fill")
                                         .foregroundColor(.red)
@@ -149,7 +158,45 @@ struct TaskCreationView: View {
                     Button(action: { showAppPicker = true }) {
                         HStack {
                             Image(systemName: "plus.circle.fill")
-                            Text("Add More Apps")
+                            Text("Add Blocked Apps")
+                        }
+                    }
+                }
+                
+                Section("Blocked Websites (\\(blockedWebsites.count))") {
+                    HStack(spacing: 8) {
+                        TextField("youtube.com", text: $websiteInput)
+                            .textFieldStyle(.roundedBorder)
+                        
+                        Button("Add") {
+                            addWebsiteFromInput()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(normalizeDomain(websiteInput) == nil)
+                    }
+                    
+                    if blockedWebsites.isEmpty {
+                        Text("No blocked websites selected")
+                            .foregroundColor(.secondary)
+                            .italic()
+                    } else {
+                        ForEach(blockedWebsites) { website in
+                            HStack {
+                                Image(systemName: "globe")
+                                    .foregroundColor(.secondary)
+                                Text(website.name)
+                                    .lineLimit(1)
+                                
+                                Spacer()
+                                
+                                Button(action: {
+                                    removeResource(website)
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.red)
+                                }
+                                .buttonStyle(.plain)
+                            }
                         }
                     }
                 }
@@ -191,7 +238,8 @@ struct TaskCreationView: View {
     }
 
     private func loadDefaultApps(for category: Category) {
-        selectedResources = category.defaultApps.compactMap { appName in
+        let websiteRules = selectedResources.filter { $0.type == .website }
+        let appRules = category.defaultBlockedApps.compactMap { appName in
             // Try to find the actual app path
             let possiblePaths = [
                 "/Applications/\(appName).app",
@@ -209,6 +257,8 @@ struct TaskCreationView: View {
             // Return with default path even if not found (user might have it elsewhere)
             return Resource(name: appName, path: "/Applications/\(appName).app", type: .application)
         }
+        
+        selectedResources = appRules + websiteRules
     }
     
     private func applyTemplate(_ template: TaskTemplate) {
@@ -231,6 +281,43 @@ struct TaskCreationView: View {
         )
         viewModel.addTask(task)
         dismiss()
+    }
+    
+    private func addWebsiteFromInput() {
+        guard let normalized = normalizeDomain(websiteInput) else { return }
+        let isDuplicate = selectedResources.contains { resource in
+            resource.type == .website && resource.path.lowercased() == normalized
+        }
+        guard !isDuplicate else {
+            websiteInput = ""
+            return
+        }
+        
+        selectedResources.append(Resource(name: normalized, path: normalized, type: .website))
+        websiteInput = ""
+    }
+    
+    private func normalizeDomain(_ value: String) -> String? {
+        var candidate = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !candidate.isEmpty else { return nil }
+        
+        if !candidate.contains("://") {
+            candidate = "https://\(candidate)"
+        }
+        
+        guard var host = URLComponents(string: candidate)?.host?.lowercased() else {
+            return nil
+        }
+        
+        if host.hasPrefix("www.") {
+            host = String(host.dropFirst(4))
+        }
+        
+        return host.isEmpty ? nil : host
+    }
+    
+    private func removeResource(_ resource: Resource) {
+        selectedResources.removeAll { $0.id == resource.id }
     }
 }
 
@@ -259,8 +346,7 @@ struct TemplateButton: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 10)
             .padding(.horizontal, 8)
-            .background(Color.accentColor.opacity(0.1))
-            .cornerRadius(8)
+            .liquidGlassCard(cornerRadius: 10, tint: .accentColor, tintOpacity: 0.15, strokeOpacity: 0.55, shadowOpacity: 0.08)
         }
         .buttonStyle(.plain)
     }
@@ -273,6 +359,10 @@ struct AppPickerView: View {
     @State private var availableApps: [AppInfo] = []
     @State private var searchText = ""
     @State private var isLoading = true
+    
+    private var selectedAppsCount: Int {
+        selectedResources.filter { $0.type == .application }.count
+    }
 
     var filteredApps: [AppInfo] {
         if searchText.isEmpty {
@@ -300,8 +390,7 @@ struct AppPickerView: View {
                     }
                 }
                 .padding(10)
-                .background(Color.gray.opacity(0.1))
-                .cornerRadius(8)
+                .liquidGlassCard(cornerRadius: 10, tint: .white, tintOpacity: 0.08, strokeOpacity: 0.5, shadowOpacity: 0.06)
                 .padding()
 
                 Divider()
@@ -326,7 +415,7 @@ struct AppPickerView: View {
                             ForEach(filteredApps, id: \.path) { app in
                                 AppRowView(
                                     app: app,
-                                    isSelected: selectedResources.contains { $0.name == app.name },
+                                    isSelected: selectedResources.contains { $0.type == .application && $0.name == app.name },
                                     onTap: { toggleApp(app) }
                                 )
                             }
@@ -335,7 +424,7 @@ struct AppPickerView: View {
                     }
                 }
             }
-            .navigationTitle("Select Apps (\(selectedResources.count) selected)")
+            .navigationTitle("Select Blocked Apps (\(selectedAppsCount) selected)")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
@@ -351,7 +440,7 @@ struct AppPickerView: View {
     }
     
     private func toggleApp(_ app: AppInfo) {
-        if let index = selectedResources.firstIndex(where: { $0.name == app.name }) {
+        if let index = selectedResources.firstIndex(where: { $0.type == .application && $0.name == app.name }) {
             selectedResources.remove(at: index)
         } else {
             let resource = Resource(name: app.name, path: app.path, type: .application)
@@ -440,8 +529,13 @@ struct AppRowView: View {
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 12)
-            .background(isSelected ? Color.green.opacity(0.1) : Color.clear)
-            .cornerRadius(8)
+            .liquidGlassCard(
+                cornerRadius: 8,
+                tint: isSelected ? .green : .white,
+                tintOpacity: isSelected ? 0.16 : 0.06,
+                strokeOpacity: isSelected ? 0.7 : 0.4,
+                shadowOpacity: 0.06
+            )
         }
         .buttonStyle(.plain)
     }

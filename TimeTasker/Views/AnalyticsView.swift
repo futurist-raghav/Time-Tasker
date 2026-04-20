@@ -2,6 +2,18 @@ import SwiftUI
 
 struct AnalyticsView: View {
     @ObservedObject var viewModel: TaskListViewModel
+
+    private var weeklyTotalMinutes: Int {
+        viewModel.weeklyStats.reduce(0) { partial, item in
+            partial + item.minutes
+        }
+    }
+
+    private var averageFocusSessionMinutes: Int {
+        guard !viewModel.taskHistory.isEmpty else { return 0 }
+        let totalMinutes = Int(viewModel.taskHistory.reduce(0) { $0 + $1.focusTime } / 60)
+        return totalMinutes / max(viewModel.taskHistory.count, 1)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -37,6 +49,19 @@ struct AnalyticsView: View {
                     color: .orange
                 )
             }
+
+            HStack(spacing: 10) {
+                Label("\(weeklyTotalMinutes) min this week", systemImage: "calendar.badge.clock")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                Label("avg \(averageFocusSessionMinutes)m", systemImage: "waveform.path.ecg")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal, 2)
             
             Divider()
             
@@ -81,8 +106,7 @@ struct AnalyticsView: View {
                         .foregroundColor(.secondary)
                 }
                 .padding(10)
-                .background(Color.yellow.opacity(0.1))
-                .cornerRadius(8)
+                .liquidGlassCard(cornerRadius: 10, tint: .yellow, tintOpacity: 0.14)
             }
         }
     }
@@ -116,6 +140,7 @@ struct StatCard: View {
             Text(value)
                 .font(.title3)
                 .fontWeight(.semibold)
+                .monospacedDigit()
             
             Text(title)
                 .font(.caption2)
@@ -123,8 +148,7 @@ struct StatCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .background(color.opacity(0.1))
-        .cornerRadius(10)
+        .liquidGlassCard(cornerRadius: 10, tint: color, tintOpacity: 0.15)
     }
 }
 

@@ -17,18 +17,22 @@ enum Category: String, Codable, CaseIterable {
         }
     }
 
-    var defaultApps: [String] {
+    var defaultBlockedApps: [String] {
         switch self {
         case .coding:
-            return ["Xcode", "Visual Studio Code", "Terminal", "iTerm", "Cursor", "Sublime Text", "IntelliJ IDEA", "PyCharm", "WebStorm"]
+            return ["Safari", "Google Chrome", "Comet", "Arc", "Discord", "Slack", "Messages"]
         case .writing:
-            return ["Pages", "Microsoft Word", "Google Chrome", "Safari", "Notion", "Bear", "Ulysses", "Notes"]
+            return ["YouTube Music", "Discord", "Messages", "Steam", "X"]
         case .design:
-            return ["Figma", "Sketch", "Adobe Photoshop", "Adobe Illustrator", "Affinity Designer", "Canva"]
+            return ["Discord", "Messages", "Steam", "Safari", "Google Chrome"]
         case .research:
-            return ["Safari", "Google Chrome", "Firefox", "Microsoft Edge", "Notes", "Preview", "Books"]
+            return ["Discord", "Messages", "Steam", "X", "Instagram"]
         case .custom:
             return []
         }
+    }
+    
+    var defaultApps: [String] {
+        defaultBlockedApps
     }
 }

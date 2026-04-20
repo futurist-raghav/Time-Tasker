@@ -171,8 +171,7 @@ struct TaskHistoryRow: View {
             }
         }
         .padding(10)
-        .background(Color.secondary.opacity(0.05))
-        .cornerRadius(8)
+        .liquidGlassCard(cornerRadius: 10, tint: task.wasSuccessful ? .green : .orange, tintOpacity: 0.1, strokeOpacity: 0.5, shadowOpacity: 0.08)
     }
     
     private func formatFocusTime(_ interval: TimeInterval) -> String {

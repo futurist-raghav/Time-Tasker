@@ -1,0 +1,6 @@
+.DS_Store
+DerivedData/
+
+# Xcode user-local state
+**/xcuserdata/
+**/*.xcuserstate

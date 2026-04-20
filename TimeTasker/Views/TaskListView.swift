@@ -4,6 +4,20 @@ struct TaskListView: View {
     @ObservedObject var viewModel: TaskListViewModel
     let onAddTask: () -> Void
 
+    private var pendingCount: Int {
+        viewModel.tasks.filter { !$0.isExpired }.count
+    }
+
+    private var expiredCount: Int {
+        viewModel.tasks.filter { $0.isExpired }.count
+    }
+
+    private var totalRulesCount: Int {
+        viewModel.tasks.reduce(0) { partial, task in
+            partial + task.resources.count
+        }
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             // Header
@@ -35,6 +49,14 @@ struct TaskListView: View {
             }
             .padding(.top, 8)
 
+            HStack(spacing: 8) {
+                TaskListMetricPill(icon: "hourglass", label: "Pending", value: pendingCount, tint: .blue)
+                TaskListMetricPill(icon: "exclamationmark.triangle", label: "Expired", value: expiredCount, tint: .orange)
+                TaskListMetricPill(icon: "shield", label: "Rules", value: totalRulesCount, tint: .mint)
+                Spacer()
+            }
+            .padding(.bottom, 2)
+
             if viewModel.tasks.isEmpty {
                 // Empty state
                 VStack(spacing: 12) {
@@ -62,8 +84,8 @@ struct TaskListView: View {
                     .padding(.top, 4)
                 }
                 .frame(maxWidth: .infinity, minHeight: 200)
-                .background(Color.secondary.opacity(0.05))
-                .cornerRadius(12)
+                .padding(10)
+                .liquidGlassCard(cornerRadius: 14, tint: .white, tintOpacity: 0.08)
             } else {
                 // Task list
                 VStack(spacing: 8) {
@@ -96,6 +118,9 @@ struct TaskRowView: View {
     @State private var isHovering = false
 
     var body: some View {
+        let blockedAppCount = task.resources.filter { $0.type == .application }.count
+        let blockedSiteCount = task.resources.filter { $0.type == .website }.count
+
         HStack(spacing: 12) {
             // Priority indicator
             Image(systemName: task.priority.iconName)
@@ -131,12 +156,22 @@ struct TaskRowView: View {
                         .foregroundColor(priorityColor)
                         .cornerRadius(3)
                     
-                    // Resources
-                    if task.resources.count > 0 {
+                    // Blocking rules
+                    if blockedAppCount > 0 {
                         HStack(spacing: 2) {
-                            Image(systemName: "app.badge.checkmark")
+                            Image(systemName: "app")
                                 .font(.caption2)
-                            Text("\(task.resources.count)")
+                            Text("\(blockedAppCount)")
+                        }
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    }
+
+                    if blockedSiteCount > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "globe")
+                                .font(.caption2)
+                            Text("\(blockedSiteCount)")
                         }
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -202,12 +237,14 @@ struct TaskRowView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isActive ? Color.green.opacity(0.1) : (isHovering ? Color.secondary.opacity(0.08) : Color.secondary.opacity(0.05)))
+        .liquidGlassCard(
+            cornerRadius: 12,
+            tint: isActive ? .green : .white,
+            tintOpacity: isActive ? 0.18 : (isHovering ? 0.12 : 0.08),
+            strokeOpacity: isActive ? 0.8 : 0.55
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(isActive ? Color.green.opacity(0.3) : Color.clear, lineWidth: 1)
         )
         .onHover { hovering in
@@ -242,16 +279,6 @@ struct TaskRowView: View {
         }
     }
     
-    private var statusColor: Color {
-        if isActive {
-            return .green
-        } else if task.isExpired {
-            return .red
-        } else {
-            return .orange
-        }
-    }
-    
     private var timeColor: Color {
         if task.isExpired {
             return .red
@@ -260,6 +287,32 @@ struct TaskRowView: View {
         } else {
             return .primary
         }
+    }
+}
+
+struct TaskListMetricPill: View {
+    let icon: String
+    let label: String
+    let value: Int
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.caption2)
+            Text("\(label) \(value)")
+                .font(.caption2)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(tint.opacity(0.15))
+        )
+        .overlay(
+            Capsule()
+                .stroke(tint.opacity(0.38), lineWidth: 1)
+        )
     }
 }
 

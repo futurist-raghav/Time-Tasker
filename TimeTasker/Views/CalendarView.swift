@@ -13,24 +13,26 @@ struct CalendarView: View {
         VStack(spacing: 16) {
             // Month Navigation
             HStack {
-                Button(action: previousMonth) {
-                    Image(systemName: "chevron.left")
-                        .font(.title3)
-                }
-                .buttonStyle(.plain)
+                CalendarToolbarButton(systemImage: "chevron.left", action: previousMonth)
                 
                 Spacer()
                 
                 Text(monthYearString)
                     .font(.headline)
+                    .fontWeight(.semibold)
                 
                 Spacer()
-                
-                Button(action: nextMonth) {
-                    Image(systemName: "chevron.right")
-                        .font(.title3)
+
+                Button("Today") {
+                    withAnimation(.spring(duration: 0.35)) {
+                        selectedDate = Date()
+                        currentMonth = Date()
+                    }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                
+                CalendarToolbarButton(systemImage: "chevron.right", action: nextMonth)
             }
             .padding(.horizontal)
             
@@ -170,6 +172,7 @@ struct CalendarDayView: View {
     let tasks: [Task]
     
     private let calendar = Calendar.current
+    private var hasTasks: Bool { !tasks.isEmpty }
     
     var body: some View {
         VStack(spacing: 2) {
@@ -188,14 +191,14 @@ struct CalendarDayView: View {
             }
             .frame(height: 6)
         }
-        .frame(width: 36, height: 44)
+        .frame(width: 40, height: 50)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(backgroundColor)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(isSelected ? Color.accentColor : (hasTasks ? Color.accentColor.opacity(0.35) : Color.clear), lineWidth: hasTasks ? 1.2 : 2)
         )
     }
     
@@ -213,9 +216,11 @@ struct CalendarDayView: View {
     
     private var backgroundColor: Color {
         if isSelected {
-            return Color.accentColor.opacity(0.2)
+            return Color.accentColor.opacity(0.24)
         } else if isToday {
-            return Color.accentColor.opacity(0.1)
+            return Color.accentColor.opacity(0.14)
+        } else if hasTasks {
+            return Color.white.opacity(0.06)
         } else {
             return Color.clear
         }
@@ -271,15 +276,14 @@ struct CalendarTaskRow: View {
                 .buttonStyle(.plain)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 4)
-                .background(Color.green.opacity(0.2))
+                .background(Color.green.opacity(0.18))
                 .foregroundColor(.green)
-                .cornerRadius(4)
+                .cornerRadius(6)
             }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
-        .background(Color.secondary.opacity(0.05))
-        .cornerRadius(6)
+        .liquidGlassCard(cornerRadius: 8, tint: statusColor, tintOpacity: 0.12, strokeOpacity: 0.5, shadowOpacity: 0.08)
     }
     
     private var statusColor: Color {
@@ -290,6 +294,28 @@ struct CalendarTaskRow: View {
         } else {
             return .blue
         }
+    }
+}
+
+struct CalendarToolbarButton: View {
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.caption)
+                .frame(width: 24, height: 24)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.08))
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -13,9 +13,6 @@ struct ContentView: View {
     @EnvironmentObject var taskViewModel: TaskListViewModel
     @EnvironmentObject var audioViewModel: AudioPlayerViewModel
     @StateObject private var blockerViewModel = AppBlockerViewModel()
-    
-    // Monitor for blocking status
-    @State private var lastBlockedApp = ""
 
     @State private var showTaskCreation = false
     @State private var showCalendar = false
@@ -23,118 +20,48 @@ struct ContentView: View {
     @State private var showAnalytics = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with current time
-            HeaderView(showCalendar: $showCalendar, showHistory: $showHistory, showAnalytics: $showAnalytics)
-            
-            // Show blocking status if active
-            if blockerViewModel.isMonitoring {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(Color.green)
-                        .frame(width: 8, height: 8)
-                    Text("App Blocking Active")
-                        .font(.caption)
-                        .foregroundColor(.green)
-                    Spacer()
-                    Text("\(blockerViewModel.allowedAppsCount) apps allowed")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+        ZStack {
+            LiquidGlassBackground()
+
+            VStack(spacing: 12) {
+                HeaderView(showCalendar: $showCalendar, showHistory: $showHistory, showAnalytics: $showAnalytics)
+                    .liquidGlassCard(cornerRadius: 20, tint: .white, tintOpacity: 0.1)
+
+                if blockerViewModel.isMonitoring {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(Color.green)
+                            .frame(width: 8, height: 8)
+                        Text("Focus Blocking Active")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                        Spacer()
+                        Text("\(blockerViewModel.blockedAppsCount) apps + \(blockerViewModel.blockedWebsitesCount) sites blocked")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .liquidGlassCard(cornerRadius: 14, tint: .green, tintOpacity: 0.16)
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 4)
-                .background(Color.green.opacity(0.1))
-            }
-            
-            Divider()
-                .padding(.horizontal)
 
-            ScrollView {
-                VStack(spacing: 16) {
-                    // Calendar View (toggleable)
-                    if showCalendar {
-                        CalendarView(viewModel: taskViewModel)
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.secondary.opacity(0.05))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                            )
-                            .padding(.horizontal)
-                            .padding(.top, 8)
+                ViewThatFits(in: .vertical) {
+                    focusSections
+                    ScrollView {
+                        focusSections
                     }
-                    
-                    // Task History View
-                    if showHistory {
-                        TaskHistoryView(viewModel: taskViewModel)
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.secondary.opacity(0.05))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                            )
-                            .padding(.horizontal)
-                            .padding(.top, 8)
-                    }
-                    
-                    // Analytics View
-                    if showAnalytics {
-                        AnalyticsView(viewModel: taskViewModel)
-                            .padding()
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.secondary.opacity(0.05))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
-                            )
-                            .padding(.horizontal)
-                            .padding(.top, 8)
-                    }
-                    
-                    // Active task display (if any)
-                    if let activeTask = taskViewModel.activeTask {
-                        ActiveTaskView(task: activeTask, onStop: {
-                            taskViewModel.stopTask()
-                        })
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(activeTask.isExpired ? Color.red.opacity(0.1) : Color.green.opacity(0.1))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(activeTask.isExpired ? Color.red.opacity(0.3) : Color.green.opacity(0.3), lineWidth: 1)
-                        )
-                        .padding(.horizontal)
-                        .padding(.top, showCalendar ? 0 : 8)
-                    }
-
-                    // Task list
-                    TaskListView(viewModel: taskViewModel, onAddTask: {
-                        showTaskCreation = true
-                    })
-                    .padding(.horizontal)
+                    .scrollIndicators(.hidden)
                 }
+                .frame(maxWidth: .infinity, alignment: .top)
+
+                MusicPlayerView(viewModel: audioViewModel)
+                    .padding(14)
+                    .frame(minHeight: 180, maxHeight: audioViewModel.playlist.isEmpty ? 240 : 320)
+                    .liquidGlassCard(cornerRadius: 18, tint: .teal, tintOpacity: 0.08)
             }
-
-            Divider()
-                .padding(.horizontal)
-
-            // Music player at bottom
-            MusicPlayerView(viewModel: audioViewModel)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
+            .padding(12)
         }
         .frame(minWidth: 520, minHeight: 720)
-        .background(Color(NSColor.windowBackgroundColor))
         .sheet(isPresented: $showTaskCreation) {
             TaskCreationView(viewModel: taskViewModel)
         }
@@ -142,85 +69,141 @@ struct ContentView: View {
             showTaskCreation = true
         }
     }
+
+    private var focusSections: some View {
+        VStack(spacing: 12) {
+            if showCalendar {
+                CalendarView(viewModel: taskViewModel)
+                    .padding(14)
+                    .liquidGlassCard(cornerRadius: 16, tint: .cyan, tintOpacity: 0.08)
+            }
+
+            if showHistory {
+                TaskHistoryView(viewModel: taskViewModel)
+                    .padding(14)
+                    .liquidGlassCard(cornerRadius: 16, tint: .indigo, tintOpacity: 0.08)
+            }
+
+            if showAnalytics {
+                AnalyticsView(viewModel: taskViewModel)
+                    .padding(14)
+                    .liquidGlassCard(cornerRadius: 16, tint: .blue, tintOpacity: 0.1)
+            }
+
+            if let activeTask = taskViewModel.activeTask {
+                ActiveTaskView(task: activeTask, onStop: {
+                    taskViewModel.stopTask()
+                })
+                .padding(14)
+                .liquidGlassCard(
+                    cornerRadius: 16,
+                    tint: activeTask.isExpired ? .red : .green,
+                    tintOpacity: activeTask.isExpired ? 0.16 : 0.12
+                )
+            }
+
+            TaskListView(viewModel: taskViewModel, onAddTask: {
+                showTaskCreation = true
+            })
+            .padding(14)
+            .liquidGlassCard(cornerRadius: 16, tint: .white, tintOpacity: 0.08)
+        }
+        .padding(.horizontal, 2)
+    }
 }
 
 struct HeaderView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    private let platform = PlatformReadinessService.shared
     @Binding var showCalendar: Bool
     @Binding var showHistory: Bool
     @Binding var showAnalytics: Bool
-    @State private var currentTime = Date()
     @State private var timeString = ""
     @State private var dateString = ""
 
     let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Main header row
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
+        VStack(spacing: 12) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("Time Tasker")
                         .font(.title2)
                         .fontWeight(.bold)
-                    
+
                     Text(dateString)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
                 Spacer()
-                
-                // Large clock display
-                Text(timeString)
-                    .font(.system(size: 42, weight: .medium, design: .monospaced))
-                    .foregroundColor(.primary)
+
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(timeString)
+                        .font(.system(size: 40, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: colorScheme == .dark
+                                    ? [.white.opacity(0.95), .white.opacity(0.65)]
+                                    : [.black.opacity(0.82), .black.opacity(0.62)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+
+                    Text("Local Time")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             }
-            
-            // Toolbar row
-            HStack(spacing: 12) {
-                // Calendar toggle
-                Button(action: {
+
+            HStack(spacing: 10) {
+                HeaderTogglePill(
+                    title: "Calendar",
+                    systemImage: showCalendar ? "calendar.circle.fill" : "calendar.circle",
+                    isActive: showCalendar
+                ) {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showCalendar.toggle()
                         if showCalendar { showHistory = false; showAnalytics = false }
                     }
-                }) {
-                    Label("Calendar", systemImage: showCalendar ? "calendar.circle.fill" : "calendar.circle")
-                        .font(.caption)
                 }
-                .buttonStyle(.plain)
-                .foregroundColor(showCalendar ? .accentColor : .secondary)
-                
-                // History toggle
-                Button(action: {
+
+                HeaderTogglePill(
+                    title: "History",
+                    systemImage: "clock.arrow.circlepath",
+                    isActive: showHistory
+                ) {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showHistory.toggle()
                         if showHistory { showCalendar = false; showAnalytics = false }
                     }
-                }) {
-                    Label("History", systemImage: showHistory ? "clock.arrow.circlepath" : "clock.arrow.circlepath")
-                        .font(.caption)
                 }
-                .buttonStyle(.plain)
-                .foregroundColor(showHistory ? .accentColor : .secondary)
-                
-                // Analytics toggle
-                Button(action: {
+
+                HeaderTogglePill(
+                    title: "Analytics",
+                    systemImage: showAnalytics ? "chart.bar.fill" : "chart.bar",
+                    isActive: showAnalytics
+                ) {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showAnalytics.toggle()
                         if showAnalytics { showCalendar = false; showHistory = false }
                     }
-                }) {
-                    Label("Analytics", systemImage: showAnalytics ? "chart.bar.fill" : "chart.bar")
-                        .font(.caption)
                 }
-                .buttonStyle(.plain)
-                .foregroundColor(showAnalytics ? .accentColor : .secondary)
-                
+
                 Spacer()
             }
+
+            SystemReadinessRow(
+                architectureLabel: platform.architectureLabel,
+                osLabel: platform.osLabel,
+                runtimeLabel: platform.runtimeLabel,
+                supportLabel: platform.supportLabel,
+                appVersionLabel: platform.appVersionLabel,
+                isRosettaTranslated: platform.isRosettaTranslated
+            )
         }
-        .padding()
+        .padding(16)
         .onReceive(timer) { newTime in
             updateTime(newTime)
         }
@@ -240,11 +223,97 @@ struct HeaderView: View {
     }
 }
 
+struct HeaderTogglePill: View {
+    let title: String
+    let systemImage: String
+    let isActive: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.caption)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule()
+                        .fill(isActive ? Color.accentColor.opacity(0.24) : Color.white.opacity(0.08))
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(isActive ? Color.accentColor.opacity(0.8) : Color.white.opacity(0.25), lineWidth: 1)
+                )
+                .foregroundColor(isActive ? .accentColor : .primary)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct SystemReadinessRow: View {
+    let architectureLabel: String
+    let osLabel: String
+    let runtimeLabel: String
+    let supportLabel: String
+    let appVersionLabel: String
+    let isRosettaTranslated: Bool
+
+    var body: some View {
+        HStack(spacing: 8) {
+            SystemPill(icon: "cpu", text: architectureLabel, tint: .mint)
+            SystemPill(icon: "laptopcomputer", text: osLabel, tint: .blue)
+            SystemPill(icon: "gauge.with.dots.needle.67percent", text: runtimeLabel, tint: isRosettaTranslated ? .orange : .green)
+            SystemPill(icon: "sparkles", text: supportLabel, tint: .teal)
+
+            Spacer()
+
+            Text(appVersionLabel)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .monospacedDigit()
+        }
+    }
+}
+
+struct SystemPill: View {
+    let icon: String
+    let text: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.caption2)
+            Text(text)
+                .lineLimit(1)
+        }
+        .font(.caption2)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(
+            Capsule()
+                .fill(tint.opacity(0.16))
+        )
+        .overlay(
+            Capsule()
+                .stroke(tint.opacity(0.45), lineWidth: 1)
+        )
+        .foregroundColor(.primary)
+    }
+}
+
 struct ActiveTaskView: View {
     let task: Task
     let onStop: () -> Void
     
-    @State private var showingAllowedApps = false
+    @State private var showingRestrictionDetails = false
+    
+    private var blockedApps: [Resource] {
+        task.resources.filter { $0.type == .application }
+    }
+    
+    private var blockedWebsites: [Resource] {
+        task.resources.filter { $0.type == .website }
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -309,10 +378,10 @@ struct ActiveTaskView: View {
                         .cornerRadius(6)
                         
                         // Apps count
-                        Button(action: { showingAllowedApps.toggle() }) {
+                        Button(action: { showingRestrictionDetails.toggle() }) {
                             HStack(spacing: 4) {
-                                Image(systemName: "app.badge.checkmark")
-                                Text("\(task.resources.count) apps")
+                                Image(systemName: "shield.lefthalf.filled")
+                                Text("\(blockedApps.count) apps · \(blockedWebsites.count) sites")
                             }
                             .font(.caption)
                             .padding(.horizontal, 8)
@@ -339,24 +408,26 @@ struct ActiveTaskView: View {
                 }
             }
             
-            // Allowed apps popover
-            if showingAllowedApps {
+            // Blocked restrictions popover
+            if showingRestrictionDetails {
                 Divider()
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Allowed Apps")
+                    Text("Blocked During Focus")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.secondary)
                     
-                    if task.resources.isEmpty {
-                        Text("No apps selected")
+                    if blockedApps.isEmpty && blockedWebsites.isEmpty {
+                        Text("No restrictions selected")
                             .font(.caption)
                             .foregroundColor(.secondary)
-                    } else {
+                    }
+                    
+                    if !blockedApps.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach(task.resources) { resource in
+                                ForEach(blockedApps) { resource in
                                     HStack(spacing: 4) {
                                         Image(systemName: "app.fill")
                                             .font(.caption)
@@ -365,7 +436,26 @@ struct ActiveTaskView: View {
                                     }
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 4)
-                                    .background(Color.green.opacity(0.1))
+                                    .background(Color.red.opacity(0.12))
+                                    .cornerRadius(4)
+                                }
+                            }
+                        }
+                    }
+                    
+                    if !blockedWebsites.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(blockedWebsites) { resource in
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "globe")
+                                            .font(.caption)
+                                        Text(resource.name)
+                                            .font(.caption)
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color.orange.opacity(0.15))
                                     .cornerRadius(4)
                                 }
                             }
