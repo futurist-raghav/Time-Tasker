@@ -201,6 +201,7 @@ struct MusicPlayerView: View {
         .popover(isPresented: $showPlaylist) {
             PlaylistView(viewModel: viewModel)
                 .frame(width: 300, height: 400)
+                .interfaceScaled()
         }
     }
 }

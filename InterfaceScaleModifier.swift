@@ -6,13 +6,15 @@ struct InterfaceScaleModifier: ViewModifier {
     func body(content: Content) -> some View {
         GeometryReader { proxy in
             let scale = max(0.5, displaySettings.interfaceScale)
-            let width = max(proxy.size.width / scale, 1)
-            let height = max(proxy.size.height / scale, 1)
+            let logicalWidth = max(proxy.size.width / scale, 1)
+            let logicalHeight = max(proxy.size.height / scale, 1)
 
             content
-                .frame(width: width, height: height, alignment: .topLeading)
+                .frame(width: logicalWidth, height: logicalHeight, alignment: .topLeading)
                 .scaleEffect(scale, anchor: .topLeading)
+                .animation(nil, value: displaySettings.interfaceScale)
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
+                .clipped()
         }
     }
 }

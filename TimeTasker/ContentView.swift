@@ -81,28 +81,29 @@ struct ContentView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let scale = max(0.5, displaySettings.interfaceScale)
-            let unscaledWidth = max(proxy.size.width / scale, 1)
-            let unscaledHeight = max(proxy.size.height / scale, 1)
+            let logicalWidth = max(proxy.size.width / max(0.5, displaySettings.interfaceScale), 1)
 
-            navigationShell(logicalWidth: unscaledWidth)
-                .frame(width: unscaledWidth, height: unscaledHeight, alignment: .topLeading)
-                .scaleEffect(scale, anchor: .topLeading)
+            navigationShell(logicalWidth: logicalWidth)
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
-                .onAppear {
-                    updateSelection(with: taskViewModel.tasks)
-                    updateSplitVisibility(for: unscaledWidth)
-                    handlePendingWidgetCommand()
-                }
-                .onChange(of: unscaledWidth) { _, newWidth in
-                    updateSplitVisibility(for: newWidth)
-                }
+            .onAppear {
+                updateSelection(with: taskViewModel.tasks)
+                updateSplitVisibility(for: logicalWidth)
+                handlePendingWidgetCommand()
+            }
+            .onChange(of: proxy.size.width) { _, newWidth in
+                let scale = max(0.5, displaySettings.interfaceScale)
+                updateSplitVisibility(for: max(newWidth / scale, 1))
+            }
+            .onChange(of: displaySettings.interfaceScale) { _, newScale in
+                updateSplitVisibility(for: max(proxy.size.width / max(0.5, newScale), 1))
+            }
         }
     }
 
     private func navigationShell(logicalWidth: CGFloat) -> some View {
         NavigationSplitView(columnVisibility: $splitVisibility) {
             sidebar
+                .interfaceScaled()
                 .navigationSplitViewColumnWidth(
                     min: 180,
                     ideal: min(230, logicalWidth * 0.22),
@@ -110,6 +111,7 @@ struct ContentView: View {
                 )
         } content: {
             contentColumn
+                .interfaceScaled()
                 .navigationSplitViewColumnWidth(
                     min: logicalWidth < 980 ? 440 : 560,
                     ideal: logicalWidth < 980 ? 520 : 760,
@@ -117,6 +119,7 @@ struct ContentView: View {
                 )
         } detail: {
             inspectorColumn
+                .interfaceScaled()
                 .navigationSplitViewColumnWidth(
                     min: logicalWidth < 980 ? 260 : 300,
                     ideal: logicalWidth < 980 ? 290 : 340,
