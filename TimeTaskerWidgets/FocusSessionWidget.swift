@@ -6,11 +6,12 @@ private struct FocusSessionEntry: TimelineEntry {
     let date: Date
     let activeTask: WidgetTask?
     let pausedTask: WidgetTask?
+    let nextTask: WidgetTask?
 }
 
 private struct FocusSessionProvider: TimelineProvider {
     func placeholder(in context: Context) -> FocusSessionEntry {
-        FocusSessionEntry(date: Date(), activeTask: sampleTask, pausedTask: nil)
+        FocusSessionEntry(date: Date(), activeTask: sampleTask, pausedTask: nil, nextTask: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (FocusSessionEntry) -> Void) {
@@ -27,7 +28,8 @@ private struct FocusSessionProvider: TimelineProvider {
         FocusSessionEntry(
             date: Date(),
             activeTask: WidgetTaskStore.loadActiveTask(),
-            pausedTask: WidgetTaskStore.loadPausedTask()
+            pausedTask: WidgetTaskStore.loadPausedTask(),
+            nextTask: WidgetTaskStore.loadPendingTasks(limit: 1).first
         )
     }
 
@@ -61,85 +63,197 @@ private struct FocusSessionWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Focus", systemImage: "timer")
-                .font(.headline)
+            header
 
             if let activeTask = entry.activeTask {
-                Text(activeTask.title)
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(2)
-
-                Text(timeLabel(for: activeTask))
-                    .font(.title3.monospacedDigit())
-                    .foregroundStyle(.primary)
-
-                if family == .systemSmall {
-                    HStack {
-                        Button(intent: PauseFocusIntent()) {
-                            Label("Pause", systemImage: "pause.fill")
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                } else {
-                    HStack {
-                        Button(intent: PauseFocusIntent()) {
-                            Label("Pause", systemImage: "pause.fill")
-                        }
-                        .buttonStyle(.bordered)
-
-                        Button(intent: StopFocusIntent()) {
-                            Label("Stop", systemImage: "stop.fill")
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
+                activeFocusView(activeTask)
             } else if let pausedTask = entry.pausedTask {
-                Text("Paused")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Text(pausedTask.title)
-                    .font(.subheadline)
-                    .lineLimit(2)
-
-                HStack {
-                    Button(intent: ResumeFocusIntent()) {
-                        Label("Resume", systemImage: "play.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
+                pausedFocusView(pausedTask)
             } else {
-                Text("No active session")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Button(intent: StartFocusIntent(taskID: nil)) {
-                    Label("Start Focus", systemImage: "play.fill")
-                }
-                .buttonStyle(.borderedProminent)
+                idleFocusView
             }
 
             Spacer(minLength: 0)
 
-            Button(intent: OpenFocusIntent()) {
-                Text("Open Focus")
-                    .font(.caption.weight(.semibold))
-            }
-            .buttonStyle(.plain)
+            footerActions
         }
         .padding(12)
+        .containerBackground(for: .widget) {
+            ContainerRelativeShape()
+                .fill(.fill.tertiary)
+        }
+        .widgetURL(URL(string: "timetasker://focus"))
     }
 
-    private func timeLabel(for task: WidgetTask) -> String {
-        let remaining = max(0, Int(task.timeRemaining))
-        let hours = remaining / 3600
-        let minutes = (remaining % 3600) / 60
-        let seconds = remaining % 60
+    private var header: some View {
+        HStack {
+            Label("Focus", systemImage: "timer")
+                .font(.headline.weight(.semibold))
 
-        if hours > 0 {
-            return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
+            Spacer(minLength: 0)
+
+            if entry.activeTask != nil {
+                stateChip("Live", tint: .green)
+            } else if entry.pausedTask != nil {
+                stateChip("Paused", tint: .orange)
+            } else {
+                stateChip("Idle", tint: .secondary)
+            }
+        }
+    }
+
+    private func activeFocusView(_ task: WidgetTask) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(task.title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(family == .systemSmall ? 1 : 2)
+
+            Text(task.deadline, style: .timer)
+                .font(.system(size: family == .systemSmall ? 22 : 28, weight: .bold, design: .rounded))
+                .monospacedDigit()
+
+            if family != .systemSmall {
+                progressBar(progress: progressValue(for: task))
+            }
+
+            HStack(spacing: 8) {
+                Button(intent: PauseFocusIntent()) {
+                    Label("Pause", systemImage: "pause.fill")
+                }
+                .buttonStyle(.bordered)
+
+                if family != .systemSmall {
+                    Button(intent: StopFocusIntent()) {
+                        Label("Stop", systemImage: "stop.fill")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .controlSize(.small)
+        }
+    }
+
+    private func pausedFocusView(_ task: WidgetTask) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(task.title)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(2)
+
+            Text("Session paused from widget")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                Button(intent: ResumeFocusIntent()) {
+                    Label("Resume", systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+
+                if family != .systemSmall {
+                    Button(intent: StopFocusIntent()) {
+                        Label("Stop", systemImage: "stop.fill")
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+            .controlSize(.small)
+        }
+    }
+
+    private var idleFocusView: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let nextTask = entry.nextTask {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Next up")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Text(nextTask.title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(family == .systemSmall ? 1 : 2)
+
+                    Text(nextTask.deadline, style: .relative)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
+                .background {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.primary.opacity(0.08))
+                }
+
+                Button(intent: StartFocusIntent(taskID: nextTask.id.uuidString)) {
+                    Label("Start Next Task", systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            } else {
+                Text("No task ready for focus")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Button(intent: OpenQuickAddIntent()) {
+                    Label("Quick Add Task", systemImage: "plus")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+    }
+
+    private var footerActions: some View {
+        HStack(spacing: 8) {
+            Button(intent: OpenFocusIntent()) {
+                Label("Open", systemImage: "arrow.up.right.square")
+            }
+            .buttonStyle(.bordered)
+
+            if family != .systemSmall {
+                Button(intent: OpenTodayIntent()) {
+                    Label("Today", systemImage: "checklist")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .controlSize(.small)
+    }
+
+    private func stateChip(_ title: String, tint: Color) -> some View {
+        Text(title)
+            .font(.caption2.weight(.semibold))
+            .foregroundStyle(tint)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background {
+                Capsule(style: .continuous)
+                    .fill(tint.opacity(0.18))
+            }
+    }
+
+    private func progressValue(for task: WidgetTask) -> Double {
+        guard task.estimatedDuration > 0 else {
+            return 0
         }
 
-        return String(format: "%02d:%02d", minutes, seconds)
+        return min(max(task.focusTimeSpent / task.estimatedDuration, 0), 1)
+    }
+
+    private func progressBar(progress: Double) -> some View {
+        GeometryReader { proxy in
+            let clamped = min(max(progress, 0), 1)
+
+            ZStack(alignment: .leading) {
+                Capsule(style: .continuous)
+                    .fill(Color.primary.opacity(0.12))
+
+                Capsule(style: .continuous)
+                    .fill(Color.accentColor.opacity(0.85))
+                    .frame(width: proxy.size.width * clamped)
+            }
+        }
+        .frame(height: 6)
     }
 }
 

@@ -21,6 +21,7 @@ class DataPersistenceService {
             SharedStorageKeys.totalFocusTimeToday,
             SharedStorageKeys.tasksCompletedToday,
             SharedStorageKeys.currentStreak,
+            SharedStorageKeys.sharedMutationToken,
             SharedStorageKeys.pendingWidgetCommand,
             SharedStorageKeys.pausedFocusTaskID
         ]
@@ -39,6 +40,7 @@ class DataPersistenceService {
         do {
             let data = try PropertyListEncoder().encode(tasks)
             defaults.set(data, forKey: SharedStorageKeys.tasks)
+            bumpSharedMutationToken()
         } catch {
             print("Error saving tasks: \(error)")
         }
@@ -62,6 +64,7 @@ class DataPersistenceService {
         do {
             let data = try JSONEncoder().encode(history)
             defaults.set(data, forKey: SharedStorageKeys.taskHistory)
+            bumpSharedMutationToken()
         } catch {
             print("Error saving task history: \(error)")
         }
@@ -94,6 +97,7 @@ class DataPersistenceService {
         defaults.set(state.totalFocusTimeToday, forKey: SharedStorageKeys.totalFocusTimeToday)
         defaults.set(state.tasksCompletedToday, forKey: SharedStorageKeys.tasksCompletedToday)
         defaults.set(state.currentStreak, forKey: SharedStorageKeys.currentStreak)
+        bumpSharedMutationToken()
     }
 
     func clearAllPersistentData() {
@@ -103,6 +107,7 @@ class DataPersistenceService {
                 legacyDefaults.removeObject(forKey: key)
             }
         }
+        bumpSharedMutationToken()
     }
 
     static func resetPersistentDataForUITesting() {
@@ -137,5 +142,9 @@ class DataPersistenceService {
                 defaults.set(legacyValue, forKey: key)
             }
         }
+    }
+
+    private func bumpSharedMutationToken() {
+        defaults.set(Date().timeIntervalSince1970, forKey: SharedStorageKeys.sharedMutationToken)
     }
 }

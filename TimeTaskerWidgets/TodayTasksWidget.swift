@@ -5,22 +5,61 @@ import AppIntents
 private struct TodayTasksEntry: TimelineEntry {
     let date: Date
     let tasks: [WidgetTask]
+    let pendingCount: Int
+    let overdueCount: Int
+    let activeCount: Int
 }
 
 private struct TodayTasksProvider: TimelineProvider {
     func placeholder(in context: Context) -> TodayTasksEntry {
-        TodayTasksEntry(date: Date(), tasks: sampleTasks)
+        makeEntry(useSampleIfEmpty: true)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TodayTasksEntry) -> Void) {
-        let tasks = WidgetTaskStore.loadTodayTasks(limit: 5)
-        completion(TodayTasksEntry(date: Date(), tasks: tasks.isEmpty ? sampleTasks : tasks))
+        completion(makeEntry(useSampleIfEmpty: context.isPreview))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodayTasksEntry>) -> Void) {
-        let entry = TodayTasksEntry(date: Date(), tasks: WidgetTaskStore.loadTodayTasks(limit: 5))
+        let entry = makeEntry(useSampleIfEmpty: false)
         let refreshDate = Calendar.current.date(byAdding: .minute, value: 10, to: Date()) ?? Date().addingTimeInterval(600)
         completion(Timeline(entries: [entry], policy: .after(refreshDate)))
+    }
+
+    private func makeEntry(useSampleIfEmpty: Bool) -> TodayTasksEntry {
+        let loadedTasks = WidgetTaskStore.loadTasks()
+        let sourceTasks: [WidgetTask]
+
+        if loadedTasks.isEmpty && useSampleIfEmpty {
+            sourceTasks = sampleTasks
+        } else {
+            sourceTasks = loadedTasks
+        }
+
+        let pendingCount = sourceTasks.filter { !$0.isActive && !$0.isExpired }.count
+        let overdueCount = sourceTasks.filter { $0.isExpired }.count
+        let activeCount = sourceTasks.filter { $0.isActive }.count
+
+        let visibleTasks = sourceTasks
+            .filter { $0.isActive || !$0.isExpired }
+            .sorted { lhs, rhs in
+                if lhs.isActive != rhs.isActive {
+                    return lhs.isActive
+                }
+
+                if lhs.priority != rhs.priority {
+                    return lhs.priority.rank > rhs.priority.rank
+                }
+
+                return lhs.deadline < rhs.deadline
+            }
+
+        return TodayTasksEntry(
+            date: Date(),
+            tasks: visibleTasks,
+            pendingCount: pendingCount,
+            overdueCount: overdueCount,
+            activeCount: activeCount
+        )
     }
 
     private var sampleTasks: [WidgetTask] {
@@ -82,79 +121,188 @@ private struct TodayTasksWidgetView: View {
         }
     }
 
+    private var visibleTasks: [WidgetTask] {
+        Array(entry.tasks.prefix(maxTasks))
+    }
+
+    private var nextTaskToStart: WidgetTask? {
+        visibleTasks.first(where: { !$0.isActive })
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label("Today", systemImage: "checklist")
-                    .font(.headline)
-                Spacer()
-                Text("\(entry.tasks.count)")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
+            header
 
-            if entry.tasks.isEmpty {
-                Text("No tasks queued")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 0)
+            if visibleTasks.isEmpty {
+                emptyState
             } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(Array(entry.tasks.prefix(maxTasks))) { task in
-                        HStack(spacing: 8) {
-                            Button(intent: CompleteTaskIntent(taskID: task.id.uuidString)) {
-                                Image(systemName: task.isExpired ? "xmark.circle" : "checkmark.circle")
-                                    .foregroundStyle(task.isExpired ? .orange : .green)
-                            }
-                            .buttonStyle(.plain)
-
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(task.title)
-                                    .font(.subheadline.weight(task.isActive ? .semibold : .regular))
-                                    .lineLimit(1)
-
-                                Text(timeLabel(for: task))
-                                    .font(.caption2.monospacedDigit())
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Spacer(minLength: 0)
-
-                            Button(intent: OpenTaskIntent(taskID: task.id.uuidString)) {
-                                Image(systemName: "arrow.up.right.square")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(visibleTasks) { task in
+                        taskRow(task)
                     }
                 }
             }
 
             Spacer(minLength: 0)
 
-            Button(intent: OpenTodayIntent()) {
-                Text("Open Today")
-                    .font(.caption.weight(.semibold))
-            }
-            .buttonStyle(.borderedProminent)
+            footerActions
         }
         .padding(12)
+        .containerBackground(for: .widget) {
+            ContainerRelativeShape()
+                .fill(.fill.tertiary)
+        }
+        .widgetURL(URL(string: "timetasker://today"))
     }
 
-    private func timeLabel(for task: WidgetTask) -> String {
-        if task.isExpired || task.timeRemaining < 0 {
-            return "Overdue"
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center) {
+                Label("Today", systemImage: "checklist")
+                    .font(.headline.weight(.semibold))
+
+                Spacer(minLength: 0)
+
+                if entry.activeCount > 0 {
+                    statusChip(title: "Live", icon: "timer", tint: .green)
+                }
+            }
+
+            HStack(spacing: 6) {
+                statusChip(title: "\(entry.pendingCount) Pending", icon: "tray", tint: .blue)
+
+                if entry.overdueCount > 0 {
+                    statusChip(title: "\(entry.overdueCount) Overdue", icon: "exclamationmark.triangle", tint: .orange)
+                }
+            }
         }
+    }
 
-        let interval = Int(task.timeRemaining)
-        let hours = interval / 3600
-        let minutes = (interval % 3600) / 60
-
-        if hours > 0 {
-            return "\(hours)h \(minutes)m left"
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Nothing queued")
+                .font(.subheadline.weight(.semibold))
+            Text("Add your next focus block from Quick Add.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 6)
+    }
 
-        return "\(minutes)m left"
+    private func taskRow(_ task: WidgetTask) -> some View {
+        HStack(spacing: 8) {
+            Button(intent: CompleteTaskIntent(taskID: task.id.uuidString)) {
+                Image(systemName: task.isExpired ? "xmark.circle.fill" : "checkmark.circle")
+                    .foregroundStyle(task.isExpired ? .orange : .green)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.title)
+                    .font(.subheadline.weight(task.isActive ? .semibold : .regular))
+                    .lineLimit(1)
+
+                HStack(spacing: 6) {
+                    Text(task.priority.rawValue)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    Circle()
+                        .frame(width: 3, height: 3)
+                        .foregroundStyle(.secondary)
+
+                    if task.isActive {
+                        Text(task.deadline, style: .timer)
+                            .font(.caption2.monospacedDigit())
+                            .foregroundStyle(.primary)
+                    } else {
+                        Text(task.deadline, style: .relative)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            if task.isActive {
+                Button(intent: PauseFocusIntent()) {
+                    Image(systemName: "pause.fill")
+                        .font(.caption.weight(.bold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            } else {
+                Button(intent: StartFocusIntent(taskID: task.id.uuidString)) {
+                    Image(systemName: "play.fill")
+                        .font(.caption.weight(.bold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
+
+            Button(intent: OpenTaskIntent(taskID: task.id.uuidString)) {
+                Image(systemName: "arrow.up.right.square")
+                    .font(.caption)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.primary.opacity(0.08))
+        }
+    }
+
+    private var footerActions: some View {
+        HStack(spacing: 8) {
+            if entry.activeCount == 0, let nextTaskToStart {
+                Button(intent: StartFocusIntent(taskID: nextTaskToStart.id.uuidString)) {
+                    Label("Start Top", systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            if entry.activeCount == 0 {
+                Button(intent: OpenTodayIntent()) {
+                    Label("Open", systemImage: "arrow.up.right.square")
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Button(intent: OpenTodayIntent()) {
+                    Label("Open", systemImage: "arrow.up.right.square")
+                }
+                .buttonStyle(.borderedProminent)
+            }
+
+            if family == .systemLarge {
+                Button(intent: OpenQuickAddIntent()) {
+                    Label("Quick Add", systemImage: "plus")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .controlSize(.small)
+    }
+
+    private func statusChip(title: String, icon: String, tint: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.caption2)
+            Text(title)
+                .font(.caption2.weight(.semibold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background {
+            Capsule(style: .continuous)
+                .fill(tint.opacity(0.18))
+        }
     }
 }
 

@@ -13,6 +13,7 @@ enum WidgetSharedStorageKeys {
     static let totalFocusTimeToday = "totalFocusTimeToday"
     static let tasksCompletedToday = "tasksCompletedToday"
     static let currentStreak = "currentStreak"
+    static let sharedMutationToken = "sharedMutationToken"
 
     static let pendingWidgetCommand = "widgetPendingCommand"
     static let pausedFocusTaskID = "widgetPausedFocusTaskID"
@@ -56,6 +57,9 @@ enum WidgetTaskStore {
 
     static func loadTodayTasks(limit: Int) -> [WidgetTask] {
         loadTasks()
+            .filter { task in
+                task.isActive || !task.isExpired
+            }
             .sorted { lhs, rhs in
                 if lhs.isActive != rhs.isActive {
                     return lhs.isActive
@@ -65,6 +69,20 @@ enum WidgetTaskStore {
                     return !lhs.isExpired
                 }
 
+                if lhs.priority != rhs.priority {
+                    return lhs.priority.rank > rhs.priority.rank
+                }
+
+                return lhs.deadline < rhs.deadline
+            }
+            .prefix(limit)
+            .map { $0 }
+    }
+
+    static func loadPendingTasks(limit: Int) -> [WidgetTask] {
+        loadTasks()
+            .filter { !$0.isActive && !$0.isExpired }
+            .sorted { lhs, rhs in
                 if lhs.priority != rhs.priority {
                     return lhs.priority.rank > rhs.priority.rank
                 }
@@ -294,6 +312,7 @@ enum WidgetTaskStore {
         do {
             let data = try PropertyListEncoder().encode(tasks)
             defaults.set(data, forKey: WidgetSharedStorageKeys.tasks)
+            bumpSharedMutationToken()
         } catch {
             print("Widget task encode failed: \(error)")
         }
@@ -316,6 +335,7 @@ enum WidgetTaskStore {
         do {
             let data = try JSONEncoder().encode(history)
             defaults.set(data, forKey: WidgetSharedStorageKeys.taskHistory)
+            bumpSharedMutationToken()
         } catch {
             print("Widget history encode failed: \(error)")
         }
@@ -326,6 +346,7 @@ enum WidgetTaskStore {
         defaults.set(stats.totalFocusTimeToday, forKey: WidgetSharedStorageKeys.totalFocusTimeToday)
         defaults.set(stats.tasksCompletedToday, forKey: WidgetSharedStorageKeys.tasksCompletedToday)
         defaults.set(stats.currentStreak, forKey: WidgetSharedStorageKeys.currentStreak)
+        bumpSharedMutationToken()
     }
 
     private static func computeCurrentStreak(from history: [WidgetCompletedTask]) -> Int {
@@ -354,5 +375,9 @@ enum WidgetTaskStore {
 
     private static func refreshWidgetTimelines() {
         WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private static func bumpSharedMutationToken() {
+        defaults.set(Date().timeIntervalSince1970, forKey: WidgetSharedStorageKeys.sharedMutationToken)
     }
 }

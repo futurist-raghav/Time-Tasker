@@ -12,9 +12,12 @@ enum SharedStorageKeys {
     static let totalFocusTimeToday = "totalFocusTimeToday"
     static let tasksCompletedToday = "tasksCompletedToday"
     static let currentStreak = "currentStreak"
+    static let sharedMutationToken = "sharedMutationToken"
 
     static let pendingWidgetCommand = "widgetPendingCommand"
     static let pausedFocusTaskID = "widgetPausedFocusTaskID"
+    static let pausedFocusRemainingSeconds = "widgetPausedFocusRemainingSeconds"
+    static let pausedFocusElapsedSeconds = "widgetPausedFocusElapsedSeconds"
 }
 
 enum WidgetKindIdentifier {

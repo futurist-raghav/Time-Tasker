@@ -86,6 +86,7 @@ struct ContentView: View {
             navigationShell(logicalWidth: logicalWidth)
                 .frame(width: proxy.size.width, height: proxy.size.height, alignment: .topLeading)
             .onAppear {
+                taskViewModel.syncFromSharedStoreIfNeeded(force: true)
                 updateSelection(with: taskViewModel.tasks)
                 updateSplitVisibility(for: logicalWidth)
                 handlePendingWidgetCommand()
@@ -96,6 +97,9 @@ struct ContentView: View {
             }
             .onChange(of: displaySettings.interfaceScale) { _, newScale in
                 updateSplitVisibility(for: max(proxy.size.width / max(0.5, newScale), 1))
+            }
+            .onOpenURL { url in
+                handleWidgetDeepLink(url)
             }
         }
     }
@@ -176,6 +180,7 @@ struct ContentView: View {
             updateSelection(with: tasks)
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            taskViewModel.syncFromSharedStoreIfNeeded(force: true)
             handlePendingWidgetCommand()
         }
     }
@@ -359,6 +364,8 @@ struct ContentView: View {
     }
 
     private func handlePendingWidgetCommand() {
+        taskViewModel.syncFromSharedStoreIfNeeded(force: true)
+
         guard let command = widgetCommandBridge.consumePendingCommand() else {
             return
         }
@@ -388,6 +395,57 @@ struct ContentView: View {
             }
             showTaskCreation = true
         }
+    }
+
+    private func handleWidgetDeepLink(_ url: URL) {
+        guard url.scheme?.lowercased() == "timetasker" else {
+            return
+        }
+
+        taskViewModel.syncFromSharedStoreIfNeeded(force: true)
+
+        let destination = (url.host ?? "").lowercased()
+        switch destination {
+        case "today", "focus":
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedSection = .today
+            }
+
+        case "quickadd":
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedSection = .today
+            }
+            showTaskCreation = true
+
+        case "task":
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selectedSection = .today
+            }
+
+            if let taskID = extractTaskID(from: url),
+               taskViewModel.tasks.contains(where: { $0.id == taskID }) {
+                selectedTaskID = taskID
+            }
+
+        default:
+            break
+        }
+    }
+
+    private func extractTaskID(from url: URL) -> UUID? {
+        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let taskIDValue = components.queryItems?.first(where: { $0.name == "id" })?.value,
+           let taskID = UUID(uuidString: taskIDValue) {
+            return taskID
+        }
+
+        let pathSegments = url.pathComponents.filter { $0 != "/" }
+        if let firstSegment = pathSegments.first,
+           let taskID = UUID(uuidString: firstSegment) {
+            return taskID
+        }
+
+        return nil
     }
 }
 

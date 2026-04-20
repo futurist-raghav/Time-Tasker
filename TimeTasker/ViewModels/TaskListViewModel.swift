@@ -16,11 +16,15 @@ class TaskListViewModel: ObservableObject {
 
     private var timer: Timer?
     private let dataService = DataPersistenceService.shared
+    private let sharedDefaults = SharedDefaultsProvider.sharedDefaults()
+    private var lastObservedMutationToken: TimeInterval = 0
+    private var syncHeartbeatCounter = 0
 
     init() {
         loadTasks()
         loadHistory()
         loadAnalytics()
+        lastObservedMutationToken = sharedDefaults.double(forKey: SharedStorageKeys.sharedMutationToken)
         startTimer()
     }
 
@@ -178,6 +182,12 @@ class TaskListViewModel: ObservableObject {
     }
 
     private func updateTaskStates() {
+        syncHeartbeatCounter += 1
+        if syncHeartbeatCounter >= 5 {
+            syncHeartbeatCounter = 0
+            syncFromSharedStoreIfNeeded()
+        }
+
         var needsSave = false
         
         for index in tasks.indices {
@@ -206,6 +216,27 @@ class TaskListViewModel: ObservableObject {
         }
         
         objectWillChange.send()
+    }
+
+    func syncFromSharedStoreIfNeeded(force: Bool = false) {
+        let mutationToken = sharedDefaults.double(forKey: SharedStorageKeys.sharedMutationToken)
+        guard force || mutationToken > lastObservedMutationToken + 0.0001 else {
+            return
+        }
+
+        lastObservedMutationToken = mutationToken
+
+        tasks = dataService.loadTasks()
+        taskHistory = dataService.loadTaskHistory()
+        activeTask = tasks.first(where: { $0.isActive })
+
+        if let activeTask, activeTask.isPomodoroMode {
+            pomodoroStatus = activeTask.pomodoroStatusText
+        } else {
+            pomodoroStatus = ""
+        }
+
+        loadAnalytics()
     }
     
     private func handlePomodoroTransition(at index: Int) {
@@ -276,6 +307,7 @@ class TaskListViewModel: ObservableObject {
 
     private func saveTasks() {
         dataService.saveTasks(tasks)
+        lastObservedMutationToken = sharedDefaults.double(forKey: SharedStorageKeys.sharedMutationToken)
         WidgetReloadService.reloadTaskAndFocusWidgets()
     }
     
@@ -285,6 +317,7 @@ class TaskListViewModel: ObservableObject {
     
     private func saveHistory() {
         dataService.saveTaskHistory(taskHistory)
+        lastObservedMutationToken = sharedDefaults.double(forKey: SharedStorageKeys.sharedMutationToken)
         WidgetReloadService.reloadStatsWidget()
     }
     
@@ -316,6 +349,7 @@ class TaskListViewModel: ObservableObject {
         )
 
         dataService.saveDailyAnalyticsState(analytics)
+        lastObservedMutationToken = sharedDefaults.double(forKey: SharedStorageKeys.sharedMutationToken)
         WidgetReloadService.reloadStatsWidget()
     }
 
