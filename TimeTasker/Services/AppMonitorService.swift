@@ -2,10 +2,29 @@ import Foundation
 import AppKit
 import Combine
 
+enum WebsiteEnforcementMode: String {
+    case inactive
+    case browserFallback
+    case systemWide
+
+    var label: String {
+        switch self {
+        case .inactive:
+            return "Website enforcement idle"
+        case .browserFallback:
+            return "Website blocking: Browser-level fallback"
+        case .systemWide:
+            return "Website blocking: System-wide (/etc/hosts)"
+        }
+    }
+}
+
 class AppMonitorService: ObservableObject {
     static let shared = AppMonitorService()
 
     private enum SettingsKeys {
+        static let blockingEnabled = "blockingEnabled"
+        static let soundEnabled = "soundEnabled"
         static let enableSystemWideHostsBlocking = "enableSystemWideHostsBlocking"
     }
 
@@ -13,6 +32,7 @@ class AppMonitorService: ObservableObject {
     @Published var blockedWebsites: Set<String> = []
     @Published var blockedAppName: String = ""
     @Published var blockedWebsite: String = ""
+    @Published var websiteEnforcementMode: WebsiteEnforcementMode = .inactive
     @Published var isMonitoring = false
     
     private let workspace = NSWorkspace.shared
@@ -60,6 +80,7 @@ class AppMonitorService: ObservableObject {
     private let browserScriptNamesByBundleID: [String: String] = [
         "com.apple.Safari": "Safari",
         "com.google.Chrome": "Google Chrome",
+        "org.mozilla.firefox": "Firefox",
         "com.microsoft.edgemac": "Microsoft Edge",
         "com.brave.Browser": "Brave Browser",
         "com.vivaldi.Vivaldi": "Vivaldi",
@@ -73,6 +94,7 @@ class AppMonitorService: ObservableObject {
         "google chrome": "Google Chrome",
         "chrome": "Google Chrome",
         "chromium": "Google Chrome",
+        "firefox": "Firefox",
         "microsoft edge": "Microsoft Edge",
         "brave browser": "Brave Browser",
         "vivaldi": "Vivaldi",
@@ -134,8 +156,19 @@ class AppMonitorService: ObservableObject {
     }
 
     func startMonitoring(with resources: [Resource]) {
+        guard isBlockingEnabled else {
+            print("ℹ️ Blocking disabled in Settings; skipping enforcement")
+            stopMonitoring()
+            return
+        }
+
         let appResources = resources.filter { $0.type == .application }
         let websiteResources = resources.filter { $0.type == .website }
+
+        if hostsRulesInstalled {
+            _ = hostsBlocker.clearManagedRules()
+            hostsRulesInstalled = false
+        }
         
         blockedApps = Set(appResources.map { $0.name })
         blockedBundleIDs = Set(appResources.compactMap { resource in
@@ -147,6 +180,7 @@ class AppMonitorService: ObservableObject {
         blockedAppName = ""
         blockedWebsite = ""
         lastWebsiteViolation = nil
+        websiteEnforcementMode = .inactive
         
         isMonitoring = true
         startWebsiteMonitorTimer()
@@ -157,11 +191,14 @@ class AppMonitorService: ObservableObject {
                 hostsRulesInstalled = hostsUpdateSucceeded
 
                 if hostsUpdateSucceeded {
+                    websiteEnforcementMode = .systemWide
                     print("🌐 System-wide website blocking enabled for \(blockedWebsites.count) domain(s)")
                 } else {
+                    websiteEnforcementMode = .browserFallback
                     print("⚠️ Could not update /etc/hosts; browser-tab fallback will still run")
                 }
             } else {
+                websiteEnforcementMode = .browserFallback
                 print("ℹ️ Using browser-level website blocking only (system-wide hosts blocking is disabled)")
             }
         }
@@ -178,6 +215,7 @@ class AppMonitorService: ObservableObject {
         blockedBundleIDs.removeAll()
         blockedAppName = ""
         blockedWebsite = ""
+        websiteEnforcementMode = .inactive
         lastWebsiteViolation = nil
         stopWebsiteMonitorTimer()
 
@@ -191,6 +229,20 @@ class AppMonitorService: ObservableObject {
 
     private var isSystemWideHostsBlockingEnabled: Bool {
         if let storedValue = UserDefaults.standard.object(forKey: SettingsKeys.enableSystemWideHostsBlocking) as? Bool {
+            return storedValue
+        }
+        return true
+    }
+
+    private var isBlockingEnabled: Bool {
+        if let storedValue = UserDefaults.standard.object(forKey: SettingsKeys.blockingEnabled) as? Bool {
+            return storedValue
+        }
+        return true
+    }
+
+    private var isAlertSoundEnabled: Bool {
+        if let storedValue = UserDefaults.standard.object(forKey: SettingsKeys.soundEnabled) as? Bool {
             return storedValue
         }
         return true
@@ -282,6 +334,8 @@ class AppMonitorService: ObservableObject {
         let script: String
         if scriptName == "Safari" {
             script = "tell application \"Safari\" to if (count of windows) > 0 then return URL of current tab of front window"
+        } else if scriptName == "Firefox" {
+            script = "tell application \"Firefox\" to if (count of windows) > 0 then return URL of front window"
         } else {
             script = "tell application \"\(scriptName)\" to if (count of windows) > 0 then return URL of active tab of front window"
         }
@@ -362,6 +416,8 @@ class AppMonitorService: ObservableObject {
         let script: String
         if scriptName == "Safari" {
             script = "tell application \"Safari\" to if (count of windows) > 0 then set URL of current tab of front window to \"about:blank\""
+        } else if scriptName == "Firefox" {
+            script = "tell application \"Firefox\" to if (count of windows) > 0 then set URL of front window to \"about:blank\""
         } else {
             script = "tell application \"\(scriptName)\" to if (count of windows) > 0 then set URL of active tab of front window to \"about:blank\""
         }
@@ -385,8 +441,9 @@ class AppMonitorService: ObservableObject {
         alert.alertStyle = .warning
         alert.addButton(withTitle: "OK")
         
-        // Play alert sound
-        NSSound.beep()
+        if isAlertSoundEnabled {
+            NSSound.beep()
+        }
         
         alert.runModal()
     }
@@ -397,7 +454,9 @@ class AppMonitorService: ObservableObject {
         alert.informativeText = "\"\(domain)\" is blocked during this focus session.\n\nRemove it from your task's blocked websites to access it again."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "OK")
-        NSSound.beep()
+        if isAlertSoundEnabled {
+            NSSound.beep()
+        }
         alert.runModal()
     }
     

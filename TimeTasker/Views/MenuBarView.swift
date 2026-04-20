@@ -150,6 +150,7 @@ struct SettingsView: View {
     @AppStorage("autoAdvanceTask") private var autoAdvanceTask = false
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("appearanceMode") private var appearanceMode = 0 // 0 = System, 1 = Light, 2 = Dark
+    @EnvironmentObject private var displaySettings: AppDisplaySettings
     private let platform = PlatformReadinessService.shared
     
     var body: some View {
@@ -178,6 +179,47 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
                 .onChange(of: appearanceMode) { _, newValue in
                     applyAppearance(newValue)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Interface Scale")
+                        Spacer()
+                        Text("\(displaySettings.scalePercentage)%")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .monospacedDigit()
+                    }
+
+                    Slider(
+                        value: Binding(
+                            get: { Double(displaySettings.interfaceScale) },
+                            set: { displaySettings.setScale(CGFloat($0)) }
+                        ),
+                        in: Double(displaySettings.minimumScale)...Double(displaySettings.maximumScale),
+                        step: Double(displaySettings.step)
+                    )
+
+                    HStack(spacing: 8) {
+                        Button("A-") {
+                            displaySettings.decreaseScale()
+                        }
+
+                        Button("Reset") {
+                            displaySettings.resetScale()
+                        }
+
+                        Button("A+") {
+                            displaySettings.increaseScale()
+                        }
+
+                        Spacer()
+
+                        Text("Shortcuts: Cmd + / Cmd -")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.bordered)
                 }
             }
 
@@ -229,7 +271,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 460)
+        .frame(width: 430, height: 530)
         .navigationTitle("Settings")
         .onAppear {
             applyAppearance(appearanceMode)

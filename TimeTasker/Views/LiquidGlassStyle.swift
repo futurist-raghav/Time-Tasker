@@ -14,22 +14,22 @@ struct LiquidGlassBackground: View {
 
                 if !reduceTransparency {
                     Circle()
-                        .fill(Color.cyan.opacity(colorScheme == .dark ? 0.24 : 0.18))
-                        .frame(width: geometry.size.width * 0.85)
-                        .blur(radius: 90)
-                        .offset(x: drift ? -120 : -40, y: drift ? -220 : -160)
+                        .fill(Color.cyan.opacity(colorScheme == .dark ? 0.32 : 0.26))
+                        .frame(width: geometry.size.width * 0.92)
+                        .blur(radius: 60)
+                        .offset(x: drift ? -170 : -55, y: drift ? -250 : -165)
+
+                    Ellipse()
+                        .fill(Color.blue.opacity(colorScheme == .dark ? 0.24 : 0.18))
+                        .frame(width: geometry.size.width * 1.05, height: geometry.size.height * 0.65)
+                        .blur(radius: 70)
+                        .offset(x: drift ? 210 : 95, y: drift ? -40 : 85)
 
                     Circle()
-                        .fill(Color.teal.opacity(colorScheme == .dark ? 0.24 : 0.16))
-                        .frame(width: geometry.size.width * 0.75)
-                        .blur(radius: 110)
-                        .offset(x: drift ? 170 : 90, y: drift ? 130 : 210)
-
-                    Circle()
-                        .fill(Color.indigo.opacity(colorScheme == .dark ? 0.18 : 0.12))
-                        .frame(width: geometry.size.width * 0.55)
-                        .blur(radius: 100)
-                        .offset(x: drift ? 250 : 170, y: drift ? -140 : -90)
+                        .fill(Color.teal.opacity(colorScheme == .dark ? 0.29 : 0.2))
+                        .frame(width: geometry.size.width * 0.8)
+                        .blur(radius: 65)
+                        .offset(x: drift ? 190 : 105, y: drift ? 165 : 230)
                 }
             }
             .onAppear {
@@ -50,9 +50,9 @@ struct LiquidGlassBackground: View {
         if colorScheme == .dark {
             return LinearGradient(
                 colors: [
-                    Color(red: 0.05, green: 0.11, blue: 0.16),
-                    Color(red: 0.08, green: 0.17, blue: 0.2),
-                    Color(red: 0.04, green: 0.1, blue: 0.14)
+                    Color(red: 0.03, green: 0.08, blue: 0.13),
+                    Color(red: 0.07, green: 0.16, blue: 0.23),
+                    Color(red: 0.02, green: 0.09, blue: 0.15)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -61,9 +61,9 @@ struct LiquidGlassBackground: View {
 
         return LinearGradient(
             colors: [
-                Color(red: 0.84, green: 0.95, blue: 0.97),
-                Color(red: 0.8, green: 0.9, blue: 0.95),
-                Color(red: 0.9, green: 0.96, blue: 0.98)
+                Color(red: 0.8, green: 0.93, blue: 0.99),
+                Color(red: 0.73, green: 0.88, blue: 0.98),
+                Color(red: 0.88, green: 0.96, blue: 0.99)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -93,10 +93,33 @@ struct LiquidGlassCardModifier: ViewModifier {
                         }
                 } else {
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(.ultraThinMaterial)
+                        .fill(.regularMaterial)
                         .overlay {
                             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                                .fill(tint.opacity(tintOpacity))
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            tint.opacity(tintOpacity * 1.1),
+                                            Color.white.opacity(colorScheme == .dark ? 0.04 : 0.12),
+                                            tint.opacity(tintOpacity * 0.6)
+                                        ],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                        }
+                        .overlay {
+                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(colorScheme == .dark ? 0.16 : 0.28),
+                                            Color.clear
+                                        ],
+                                        startPoint: .top,
+                                        endPoint: .center
+                                    )
+                                )
                         }
                 }
             }
@@ -106,20 +129,21 @@ struct LiquidGlassCardModifier: ViewModifier {
                         LinearGradient(
                             colors: [
                                 Color.white.opacity(colorScheme == .dark ? 0.55 : 0.75),
+                                tint.opacity(colorScheme == .dark ? 0.25 : 0.2),
                                 Color.white.opacity(0.08)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1
+                        lineWidth: 1.1
                     )
                     .opacity(strokeOpacity)
             }
             .shadow(
                 color: .black.opacity(colorScheme == .dark ? shadowOpacity * 1.4 : shadowOpacity),
-                radius: 18,
+                radius: 24,
                 x: 0,
-                y: 10
+                y: 14
             )
     }
 }
@@ -128,9 +152,9 @@ extension View {
     func liquidGlassCard(
         cornerRadius: CGFloat = 16,
         tint: Color = .white,
-        tintOpacity: Double = 0.07,
-        strokeOpacity: Double = 0.58,
-        shadowOpacity: Double = 0.18
+        tintOpacity: Double = 0.09,
+        strokeOpacity: Double = 0.62,
+        shadowOpacity: Double = 0.2
     ) -> some View {
         modifier(
             LiquidGlassCardModifier(

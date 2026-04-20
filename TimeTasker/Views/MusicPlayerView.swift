@@ -124,7 +124,6 @@ struct MusicPlayerView: View {
                                 RoundedRectangle(cornerRadius: 2)
                                     .fill(Color.accentColor.opacity(0.8))
                                     .frame(width: 4, height: max(4, viewModel.audioLevels[index] * 20))
-                                    .animation(.easeOut(duration: 0.1), value: viewModel.audioLevels[index])
                             }
                         }
                         .frame(height: 20)
@@ -161,7 +160,7 @@ struct MusicPlayerView: View {
                 HStack(spacing: 16) {
                     // Previous
                     PlayerIconButton(systemImage: "backward.fill", tint: .primary, action: viewModel.previousSong)
-                    .help("Previous (⌘P)")
+                    .help("Previous (Cmd + [)")
 
                     // Rewind 5s
                     PlayerIconButton(systemImage: "gobackward.5", tint: .primary, action: viewModel.rewind5Seconds)
@@ -174,7 +173,7 @@ struct MusicPlayerView: View {
                             .foregroundColor(.accentColor)
                     }
                     .buttonStyle(.plain)
-                    .help("Play/Pause (Space)")
+                    .help("Play/Pause (Cmd + K or media key)")
 
                     // Forward 5s
                     PlayerIconButton(systemImage: "goforward.5", tint: .primary, action: viewModel.forward5Seconds)
@@ -182,7 +181,7 @@ struct MusicPlayerView: View {
 
                     // Next
                     PlayerIconButton(systemImage: "forward.fill", tint: .primary, action: viewModel.nextSong)
-                    .help("Next (⌘N)")
+                    .help("Next (Cmd + ])")
                 }
                 .padding(.bottom, 8)
             }

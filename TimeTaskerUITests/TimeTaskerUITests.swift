@@ -9,33 +9,45 @@ import XCTest
 
 final class TimeTaskerUITests: XCTestCase {
 
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
-        continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
+    private func makeApp() -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-testing-reset")
+        return app
     }
 
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
+    override func setUpWithError() throws {
+        continueAfterFailure = false
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
-        let app = XCUIApplication()
+    func testMainScreenShowsCoreSections() throws {
+        let app = makeApp()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
+        XCTAssertTrue(app.otherElements["main.content"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["header.appTitle"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["tasks.section"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["tasks.newTaskButton"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testNewTaskOpensCreationSheet() throws {
+        let app = makeApp()
+        app.launch()
+
+        let newTaskButton = app.buttons["tasks.newTaskButton"]
+        XCTAssertTrue(newTaskButton.waitForExistence(timeout: 5))
+
+        newTaskButton.tap()
+
+        XCTAssertTrue(app.otherElements["taskCreation.form"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["taskCreation.titleField"].waitForExistence(timeout: 5))
     }
 
     @MainActor
     func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
+            makeApp().launch()
         }
     }
 }

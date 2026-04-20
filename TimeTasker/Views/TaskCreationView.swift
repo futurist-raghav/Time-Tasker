@@ -64,8 +64,10 @@ struct TaskCreationView: View {
                     TextField("Task Title", text: $title)
                         .textFieldStyle(.roundedBorder)
                         .font(.title3)
+                        .accessibilityIdentifier("taskCreation.titleField")
 
                     DatePicker("Deadline", selection: $deadline, in: Date()...)
+            .accessibilityIdentifier("taskCreation.form")
                         .datePickerStyle(.compact)
                     
                     // Priority Picker

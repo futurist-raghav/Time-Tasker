@@ -110,7 +110,7 @@ struct Task: Identifiable, Codable {
         let seconds = Int(interval) % 60
 
         if days > 0 {
-            return "\\(days)d \\(hours)h \\(minutes)m"
+            return "\(days)d \(hours)h \(minutes)m"
         } else {
             return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
         }
@@ -120,7 +120,7 @@ struct Task: Identifiable, Codable {
         if pomodoroIsOnBreak {
             return "Break Time"
         } else {
-            return "Session \\(pomodoroCurrentSession)"
+            return "Session \(pomodoroCurrentSession)"
         }
     }
     

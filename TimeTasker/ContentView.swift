@@ -12,6 +12,7 @@ struct ContentView: View {
     // Use environment objects from App
     @EnvironmentObject var taskViewModel: TaskListViewModel
     @EnvironmentObject var audioViewModel: AudioPlayerViewModel
+    @EnvironmentObject var displaySettings: AppDisplaySettings
     @StateObject private var blockerViewModel = AppBlockerViewModel()
 
     @State private var showTaskCreation = false
@@ -23,22 +24,30 @@ struct ContentView: View {
         ZStack {
             LiquidGlassBackground()
 
-            VStack(spacing: 12) {
+            VStack(spacing: 14) {
                 HeaderView(showCalendar: $showCalendar, showHistory: $showHistory, showAnalytics: $showAnalytics)
                     .liquidGlassCard(cornerRadius: 20, tint: .white, tintOpacity: 0.1)
 
                 if blockerViewModel.isMonitoring {
-                    HStack(spacing: 8) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 8, height: 8)
-                        Text("Focus Blocking Active")
-                            .font(.caption)
-                            .foregroundColor(.green)
-                        Spacer()
-                        Text("\(blockerViewModel.blockedAppsCount) apps + \(blockerViewModel.blockedWebsitesCount) sites blocked")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 8, height: 8)
+                            Text("Focus Blocking Active")
+                                .font(.caption)
+                                .foregroundColor(.green)
+                            Spacer()
+                            Text("\(blockerViewModel.blockedAppsCount) apps + \(blockerViewModel.blockedWebsitesCount) sites blocked")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        if blockerViewModel.blockedWebsitesCount > 0 {
+                            Text(blockerViewModel.websiteEnforcementMode.label)
+                                .font(.caption2)
+                                .foregroundColor(websiteEnforcementColor)
+                        }
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -59,9 +68,16 @@ struct ContentView: View {
                     .frame(minHeight: 180, maxHeight: audioViewModel.playlist.isEmpty ? 240 : 320)
                     .liquidGlassCard(cornerRadius: 18, tint: .teal, tintOpacity: 0.08)
             }
-            .padding(12)
+            .padding(14)
+            .scaleEffect(displaySettings.interfaceScale, anchor: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .animation(.easeInOut(duration: 0.2), value: displaySettings.interfaceScale)
+            .accessibilityIdentifier("main.content")
         }
-        .frame(minWidth: 520, minHeight: 720)
+        .frame(
+            minWidth: 520 * displaySettings.interfaceScale,
+            minHeight: 720 * displaySettings.interfaceScale
+        )
         .sheet(isPresented: $showTaskCreation) {
             TaskCreationView(viewModel: taskViewModel)
         }
@@ -110,6 +126,17 @@ struct ContentView: View {
         }
         .padding(.horizontal, 2)
     }
+
+    private var websiteEnforcementColor: Color {
+        switch blockerViewModel.websiteEnforcementMode {
+        case .inactive:
+            return .secondary
+        case .browserFallback:
+            return .orange
+        case .systemWide:
+            return .green
+        }
+    }
 }
 
 struct HeaderView: View {
@@ -130,6 +157,7 @@ struct HeaderView: View {
                     Text("Time Tasker")
                         .font(.title2)
                         .fontWeight(.bold)
+                        .accessibilityIdentifier("header.appTitle")
 
                     Text(dateString)
                         .font(.caption)
@@ -501,4 +529,5 @@ struct ActiveTaskView: View {
     ContentView()
         .environmentObject(TaskListViewModel())
         .environmentObject(AudioPlayerViewModel())
+    .environmentObject(AppDisplaySettings())
 }

@@ -46,6 +46,7 @@ struct TaskListView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
+                .accessibilityIdentifier("tasks.newTaskButton")
             }
             .padding(.top, 8)
 
@@ -105,6 +106,7 @@ struct TaskListView: View {
                 }
             }
         }
+        .accessibilityIdentifier("tasks.section")
     }
 }
 

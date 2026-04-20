@@ -15,12 +15,14 @@ class AudioPlayerViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     private var audioPlayer: AVAudioPlayer?
     private var progressTimer: Timer?
+    private var mediaKeyMonitor: Any?
     private var cancellables = Set<AnyCancellable>()
     
     override init() {
         super.init()
         setupAudioSession()
         setupKeyboardShortcuts()
+        setupMediaKeyMonitor()
     }
     
     private func setupAudioSession() {
@@ -55,6 +57,37 @@ class AudioPlayerViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
             .store(in: &cancellables)
         
         print("⌨️ Keyboard shortcuts set up for music player")
+    }
+
+    private func setupMediaKeyMonitor() {
+        mediaKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .systemDefined) { [weak self] event in
+            guard event.subtype.rawValue == 8 else {
+                return event
+            }
+
+            let keyCode = (event.data1 & 0xFFFF0000) >> 16
+            let keyFlags = event.data1 & 0x0000FFFF
+            let keyState = ((keyFlags & 0xFF00) >> 8) == 0xA
+            let isRepeat = (keyFlags & 0x1) == 0x1
+
+            guard keyState, !isRepeat else {
+                return event
+            }
+
+            switch keyCode {
+            case 16: // Play/Pause
+                self?.playOrPause()
+                return nil
+            case 17: // Fast Forward
+                self?.forward5Seconds()
+                return nil
+            case 18: // Rewind
+                self?.rewind5Seconds()
+                return nil
+            default:
+                return event
+            }
+        }
     }
     
     // AVAudioPlayerDelegate - called when song finishes
@@ -239,22 +272,24 @@ class AudioPlayerViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     private func startProgressTimer() {
         stopProgressTimer()
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             guard let self = self, let player = self.audioPlayer else { return }
             
             DispatchQueue.main.async {
                 self.currentTime = player.currentTime
                 
-                // Update audio levels for visualization
+                // Update audio levels for visualization (reduced frequency)
                 if self.isPlaying {
                     player.updateMeters()
                     let power = player.averagePower(forChannel: 0)
                     // Convert dB to linear scale (0-1)
                     let normalizedPower = CGFloat(max(0, min(1, (power + 60) / 60)))
                     
-                    // Shift levels and add new one
-                    self.audioLevels.removeFirst()
-                    self.audioLevels.append(normalizedPower)
+                    // Update all levels in batch to avoid animation thrashing
+                    var newLevels = self.audioLevels
+                    newLevels.removeFirst()
+                    newLevels.append(normalizedPower)
+                    self.audioLevels = newLevels
                 } else {
                     // Fade out levels when paused
                     self.audioLevels = self.audioLevels.map { max(0, $0 - 0.1) }
@@ -276,6 +311,9 @@ class AudioPlayerViewModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
     
     deinit {
         stopProgressTimer()
+        if let monitor = mediaKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
         // Release security-scoped resources
         for url in playlist {
             url.stopAccessingSecurityScopedResource()

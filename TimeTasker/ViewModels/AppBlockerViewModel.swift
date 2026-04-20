@@ -10,6 +10,7 @@ class AppBlockerViewModel: ObservableObject {
     @Published var blockedAppsCount: Int = 0
     @Published var blockedWebsitesCount: Int = 0
     @Published var blockedItemsCount: Int = 0
+    @Published var websiteEnforcementMode: WebsiteEnforcementMode = .inactive
 
     init() {
         setupNotifications()
@@ -36,6 +37,10 @@ class AppBlockerViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .map { $0.count }
             .assign(to: &$blockedWebsitesCount)
+
+        monitorService.$websiteEnforcementMode
+            .receive(on: DispatchQueue.main)
+            .assign(to: &$websiteEnforcementMode)
         
         Publishers.CombineLatest(monitorService.$blockedApps, monitorService.$blockedWebsites)
             .receive(on: DispatchQueue.main)
