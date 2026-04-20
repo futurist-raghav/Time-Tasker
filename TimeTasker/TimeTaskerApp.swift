@@ -210,9 +210,9 @@ final class AppDisplaySettings: ObservableObject {
         static let interfaceScale = "interfaceScale"
     }
 
-    let minimumScale: CGFloat = 0.85
-    let maximumScale: CGFloat = 1.35
-    let step: CGFloat = 0.1
+    let minimumScale: CGFloat = 0.75
+    let maximumScale: CGFloat = 2.0
+    let step: CGFloat = 0.05
 
     @Published private(set) var interfaceScale: CGFloat
 
@@ -287,6 +287,6 @@ final class AppDisplaySettings: ObservableObject {
     }
 
     private static func clamp(_ value: CGFloat) -> CGFloat {
-        min(1.35, max(0.85, value))
+        min(2.0, max(0.75, value))
     }
 }

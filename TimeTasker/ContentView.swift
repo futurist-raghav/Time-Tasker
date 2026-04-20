@@ -107,17 +107,17 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(
                     min: logicalWidth < 980 ? 440 : 560,
                     ideal: logicalWidth < 980 ? 520 : 760,
-                    max: logicalWidth < 980 ? 680 : 980
+                    max: logicalWidth
                 )
         } detail: {
             inspectorColumn
                 .navigationSplitViewColumnWidth(
                     min: logicalWidth < 980 ? 260 : 300,
                     ideal: logicalWidth < 980 ? 290 : 340,
-                    max: 400
+                    max: logicalWidth
                 )
         }
-        .navigationSplitViewStyle(.balanced)
+        .navigationSplitViewStyle(.prominentDetail)
         .searchable(text: $searchQuery, placement: .toolbar, prompt: "Search tasks")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -295,7 +295,7 @@ struct ContentView: View {
             .padding(16)
         }
         .navigationTitle("Inspector")
-        .frame(minWidth: 300, idealWidth: 340, maxWidth: 400)
+        .frame(minWidth: 300, idealWidth: 340, maxWidth: .infinity, alignment: .leading)
     }
 
     private func startFocusFromSelection() {
