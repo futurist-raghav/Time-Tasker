@@ -497,7 +497,7 @@
 				CODE_SIGN_ENTITLEMENTS = TimeTasker/TimeTasker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 386;
+				CURRENT_PROJECT_VERSION = 387;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 8Y69S8U782;
 				ENABLE_APP_SANDBOX = YES;
@@ -505,20 +505,14 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Time Tasker";
-				INFOPLIST_KEY_CFBundleURLTypes_0_CFBundleTypeRole = Editor;
-				INFOPLIST_KEY_CFBundleURLTypes_0_CFBundleURLName = com.raghavagarwal.TimeTasker;
-				INFOPLIST_KEY_CFBundleURLTypes_0_CFBundleURLSchemes_0 = timetasker;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_UIDesignRequiresCompatibility = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "TimeTasker-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 4.5;
+				MARKETING_VERSION = 4.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raghavagarwal.TimeTasker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -542,7 +536,7 @@
 				CODE_SIGN_ENTITLEMENTS = TimeTasker/TimeTasker.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 386;
+				CURRENT_PROJECT_VERSION = 387;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 8Y69S8U782;
 				ENABLE_APP_SANDBOX = YES;
@@ -550,20 +544,14 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Time Tasker";
-				INFOPLIST_KEY_CFBundleURLTypes_0_CFBundleTypeRole = Editor;
-				INFOPLIST_KEY_CFBundleURLTypes_0_CFBundleURLName = com.raghavagarwal.TimeTasker;
-				INFOPLIST_KEY_CFBundleURLTypes_0_CFBundleURLSchemes_0 = timetasker;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.productivity";
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				INFOPLIST_KEY_UIDesignRequiresCompatibility = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "TimeTasker-Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 4.5;
+				MARKETING_VERSION = 4.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raghavagarwal.TimeTasker;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -678,7 +666,7 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CODE_SIGN_ENTITLEMENTS = TimeTaskerWidgets/TimeTaskerWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 386;
+				CURRENT_PROJECT_VERSION = 387;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 8Y69S8U782;
 				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
@@ -686,7 +674,7 @@
 				INFOPLIST_FILE = "TimeTaskerWidgets-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "TimeTasker Widgets";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 4.5;
+				MARKETING_VERSION = 4.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raghavagarwal.TimeTasker.TimeTaskerWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -707,7 +695,7 @@
 				ARCHS = "$(ARCHS_STANDARD)";
 				CODE_SIGN_ENTITLEMENTS = TimeTaskerWidgets/TimeTaskerWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 386;
+				CURRENT_PROJECT_VERSION = 387;
 				DEAD_CODE_STRIPPING = YES;
 				DEVELOPMENT_TEAM = 8Y69S8U782;
 				"EXCLUDED_ARCHS[sdk=macosx*]" = x86_64;
@@ -715,7 +703,7 @@
 				INFOPLIST_FILE = "TimeTaskerWidgets-Info.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = "TimeTasker Widgets";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 4.5;
+				MARKETING_VERSION = 4.6;
 				PRODUCT_BUNDLE_IDENTIFIER = com.raghavagarwal.TimeTasker.TimeTaskerWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

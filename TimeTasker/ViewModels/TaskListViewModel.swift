@@ -220,7 +220,10 @@ class TaskListViewModel: ObservableObject {
 
     func syncFromSharedStoreIfNeeded(force: Bool = false) {
         let mutationToken = sharedDefaults.double(forKey: SharedStorageKeys.sharedMutationToken)
-        guard force || mutationToken > lastObservedMutationToken + 0.0001 else {
+        let hasMutation = mutationToken > lastObservedMutationToken + 0.0001
+        let needsInitialHydration = force && tasks.isEmpty && taskHistory.isEmpty
+
+        guard hasMutation || needsInitialHydration else {
             return
         }
 

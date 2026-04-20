@@ -21,7 +21,8 @@ private struct TodayTasksProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodayTasksEntry>) -> Void) {
         let entry = makeEntry(useSampleIfEmpty: false)
-        let refreshDate = Calendar.current.date(byAdding: .minute, value: 10, to: Date()) ?? Date().addingTimeInterval(600)
+        let refreshMinutes = context.family == .systemLarge ? 1 : 10
+        let refreshDate = Calendar.current.date(byAdding: .minute, value: refreshMinutes, to: Date()) ?? Date().addingTimeInterval(TimeInterval(refreshMinutes * 60))
         completion(Timeline(entries: [entry], policy: .after(refreshDate)))
     }
 
@@ -162,6 +163,18 @@ private struct TodayTasksWidgetView: View {
                     .font(.headline.weight(.semibold))
 
                 Spacer(minLength: 0)
+
+                if family == .systemLarge {
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(entry.date, style: .time)
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+
+                        Text(entry.date, style: .date)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
                 if entry.activeCount > 0 {
                     statusChip(title: "Live", icon: "timer", tint: .green)

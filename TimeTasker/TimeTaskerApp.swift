@@ -10,7 +10,7 @@ import AppKit
 import Combine
 
 #if arch(x86_64)
-#error("Time Tasker 4.5 and later support Apple Silicon (arm64) only.")
+#error("Time Tasker 4.6 and later support Apple Silicon (arm64) only.")
 #endif
 
 @main

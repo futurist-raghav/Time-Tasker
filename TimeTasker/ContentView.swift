@@ -161,7 +161,6 @@ struct ContentView: View {
         .sheet(isPresented: $showTaskCreation) {
             TaskCreationView(viewModel: taskViewModel)
                 .frame(minWidth: 620, minHeight: 700)
-                .interfaceScaled()
         }
         .onReceive(NotificationCenter.default.publisher(for: .newTaskShortcut)) { _ in
             showTaskCreation = true

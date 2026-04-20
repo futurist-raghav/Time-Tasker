@@ -361,7 +361,6 @@ struct TaskCreationView: View {
             .sheet(isPresented: $showAppPicker) {
                 AppPickerView(selectedResources: $selectedResources)
                     .frame(minWidth: 400, minHeight: 500)
-                    .interfaceScaled()
             }
         }
         .frame(minWidth: 620, minHeight: 700)

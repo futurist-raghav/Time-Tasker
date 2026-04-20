@@ -87,7 +87,7 @@ private struct FocusSessionWidgetView: View {
 
     private var header: some View {
         HStack {
-            Label("Focus", systemImage: "timer")
+            Label("Current Session", systemImage: "timer")
                 .font(.headline.weight(.semibold))
 
             Spacer(minLength: 0)
@@ -164,7 +164,7 @@ private struct FocusSessionWidgetView: View {
         VStack(alignment: .leading, spacing: 8) {
             if let nextTask = entry.nextTask {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Next up")
+                    Text("Next Task")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.secondary)
 
@@ -185,12 +185,12 @@ private struct FocusSessionWidgetView: View {
                 }
 
                 Button(intent: StartFocusIntent(taskID: nextTask.id.uuidString)) {
-                    Label("Start Next Task", systemImage: "play.fill")
+                    Label("Start Task", systemImage: "play.fill")
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
             } else {
-                Text("No task ready for focus")
+                Text("No task ready")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
 
@@ -264,8 +264,8 @@ struct FocusSessionWidget: Widget {
         StaticConfiguration(kind: kind, provider: FocusSessionProvider()) { entry in
             FocusSessionWidgetView(entry: entry)
         }
-        .configurationDisplayName("Focus Session")
-        .description("Start, pause, and resume focus sessions")
+        .configurationDisplayName("Current Session")
+        .description("Start, pause, resume, and stop the current task session")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
